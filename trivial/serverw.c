@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+char MESSAGE[20] = "Message from server";
+char buf[20];
+int SERVER_PORT = 8080;
+
 int main(void){
 	WSADATA wsa;
 	int wsaResult = WSAStartup(MAKEWORD(2, 2), &wsa);
@@ -18,11 +22,9 @@ int main(void){
 	int s;
 	int s1;
 	int rc;
-	char buf[1];
-	// char buf[20];
 	
 	local.sin_family = AF_INET;
-	local.sin_port = htons(8080);
+	local.sin_port = htons(SERVER_PORT);
 	local.sin_addr.s_addr = htonl(INADDR_ANY);
 	
 	s = socket(AF_INET, SOCK_STREAM, 0);
@@ -53,18 +55,16 @@ int main(void){
 		exit(1);
 	}
 	
-	rc = recv(s, buf, 1, 0);
-	// rc = recv(s, buf, strlen(buf), 0);
+	rc = recv(s1, buf, sizeof(buf), 0);
 	
 	if(rc <= 0){
 		perror("Recv error");
 		exit(1);
 	}
 	
-	printf("%c\n", buf[0]);
-	// printf("%s\n", buf);
+	printf("%s\n", buf);
 	
-	rc = send(s1, "2", 1, 0);
+	rc = send(s1, MESSAGE, sizeof(MESSAGE), 0);
 	
 	if(rc <= 0)
 		perror("Send error");
