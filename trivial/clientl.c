@@ -25,21 +25,21 @@ int main(void){
 	if(s < 0){
 		perror("Socket error");
 		exit(1);
-	}
+	}else puts("_Socket created");
 	
 	rc = connect(s, (struct sockaddr *) &peer, sizeof(peer));
 	
 	if(rc){
 		perror("Connect error");
 		exit(1);
-	}
+	}else puts("_Connect success");
 	
 	rc = send(s, MESSAGE, sizeof(MESSAGE), 0);
 	
 	if(rc <= 0){
 		perror("Send error");
 		exit(1);
-	}
+	}else puts("_Send success");
 	
 	rc = recv(s, buf, sizeof(buf), 0);
 	
