@@ -1,4 +1,4 @@
-all: client jenkins
+all: client jenkins test
 
 server: serverw.c
 	gcc -lpthread -o server serverw.c -I . -lwsock32
