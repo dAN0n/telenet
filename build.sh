@@ -1,5 +1,5 @@
 #!/bin/bash
 
 cd trivial
-make jenkins
+make all
 cd ../
