@@ -5,3 +5,6 @@ server: serverw.c
 
 client: clientl.c
 	gcc -lpthread -o client clientl.c -I .
+
+jenkins: client
+	i686-w64-mingw32-gcc -o server.exe serverw.c -I . -lwsock32
