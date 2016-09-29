@@ -2,4 +2,3 @@
 
 cd trivial
 make all
-cd ../
