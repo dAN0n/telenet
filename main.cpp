@@ -6,9 +6,9 @@
 #include <iostream>
 #include "transfer.cpp"
 
-#define MAX_THREADS 3
-#define SERVER_PORT 8005
-#define PACKET_SIZE 8
+#define MAX_THREADS_DEFAULT 3
+#define SERVER_PORT_DEFAULT 8080
+#define PACKET_SIZE_DEAFULT 8
 
 #pragma comment(lib,"Ws2_32.lib")
 
@@ -36,15 +36,17 @@ struct ArgsThread{
     string ip;
     u_short port;
 };
+
 void startWSA(){
     WSADATA wsaDATA;
-    int iResult=WSAStartup(MAKEWORD(2,2), &wsaDATA);
-    if(iResult!=0){
+    int iResult = WSAStartup(MAKEWORD(2,2), &wsaDATA);
+    if(iResult != 0){
         printf("WSAStartup failed with error: %d\n", iResult);
         exit(1);
     }else
         puts("WSAStartup success");
 }
+
 void closeSocket(SOCKET sock){
     WaitForSingleObject(hMutex,INFINITE);
     int kill_index=-1;
@@ -178,7 +180,7 @@ void acceptConnections(SOCKET listenSocket){
         serverThread=CreateThread(NULL,0,(LPTHREAD_START_ROUTINE)serverProcess,NULL,0,NULL);
         serverStart=true;
     }
-    while(current_threads<MAX_THREADS){
+    while(current_threads<MAX_THREADS_DEFAULT){
         sockaddr_in clientInfo;
         int clientInfoSize=sizeof(clientInfo);
         SOCKET acceptSocket=accept(listenSocket,(struct sockaddr*)&clientInfo,&clientInfoSize);
@@ -209,7 +211,7 @@ int main(){
     listenSocket=socket(AF_INET, SOCK_STREAM,0);
 
     server.sin_addr.s_addr = htonl(INADDR_ANY);
-    server.sin_port = htons(SERVER_PORT);
+    server.sin_port = htons(SERVER_PORT_DEFAULT);
     server.sin_family = AF_INET;
 
     if (listenSocket <0){
@@ -231,7 +233,7 @@ int main(){
     }else
         puts("Listen started");
 
-    //HANDLE threads[MAX_THREADS];
+    //HANDLE threads[MAX_THREADS_DEFAULT];
     while(work)
         acceptConnections(listenSocket);
 
