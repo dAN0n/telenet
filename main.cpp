@@ -10,9 +10,17 @@
 #define SERVER_PORT_DEFAULT 8080
 #define PACKET_SIZE_DEAFULT 8
 
+#define SERVER_MODE_NBYTE 0
+#define SERVER_MODE_SEPARATOR 1
+
 #pragma comment(lib,"Ws2_32.lib")
 
 using namespace std;
+
+int maxThreads;
+int serverPort;
+int packetSize;
+int serverMode;
 
 HANDLE hMutex;
 int current_threads=0;
@@ -70,6 +78,7 @@ void closeSocket(SOCKET sock){
     }
     ReleaseMutex(hMutex);
 }
+
 int clientProcess(ArgsThread* arg){
     SOCKET mySocket=(SOCKET)arg->threadData;
     WaitForSingleObject(hMutex,INFINITE);
@@ -132,6 +141,7 @@ int clientProcess(ArgsThread* arg){
     }
     return 0;
 }
+
 int serverProcess(){
     puts("Server process");
     string commandHelp="help";
@@ -175,12 +185,13 @@ int serverProcess(){
 
     return 0;
 }
+
 void acceptConnections(SOCKET listenSocket){
     if(!serverStart){
         serverThread=CreateThread(NULL,0,(LPTHREAD_START_ROUTINE)serverProcess,NULL,0,NULL);
         serverStart=true;
     }
-    while(current_threads<MAX_THREADS_DEFAULT){
+    while(current_threads<maxThreads){
         sockaddr_in clientInfo;
         int clientInfoSize=sizeof(clientInfo);
         SOCKET acceptSocket=accept(listenSocket,(struct sockaddr*)&clientInfo,&clientInfoSize);
@@ -203,15 +214,65 @@ void acceptConnections(SOCKET listenSocket){
 
     }
 }
-int main(){
-    hMutex=CreateMutex(NULL,false,NULL);
+
+int main(int argc, char *argv[]){
+
+    if(argc > 1){
+        for(int i = 1; i < argc; i++){
+            string opt = string(argv[i]);
+
+            if(opt == "-p" || opt == "--port"){
+                if(i < argc - 1){
+                    int arg = atoi(argv[i + 1]);
+                    if(arg > 0 && arg < 65536) serverPort = arg;
+                }
+            }
+            else if(opt == "-s" || opt == "--separator"){
+                serverMode = SERVER_MODE_SEPARATOR;
+            }
+            else if(opt == "-b" || opt == "--buffer"){
+                if(i < argc - 1){ 
+                    int arg = atoi(argv[i + 1]);
+                    if(arg > 0 && arg < 65) packetSize = arg;
+                }
+            }
+            else if(opt == "-t" || opt == "--threads"){
+                if(i < argc - 1){
+                    int arg = atoi(argv[i + 1]);
+                    if(arg > 0 && arg < 11) maxThreads = arg;
+                }
+            }
+            else if(opt == "-h" || opt == "--help"){
+                cout << "OPTIONS" << endl << endl;
+                cout << "-b, --buffer [1-64]		Buffer length, default: 8" << endl;
+                cout << "-h, --help		        Show this message and close" << endl;
+                cout << "-p, --port [1-65535]		Listen port, default: 8080" << endl;
+                cout << "-s, --separator		        Messages till separator" << endl;
+                cout << "-t, --threads [1-10]		Maximum threads, default: 3" << endl;
+                return(0);
+            }
+        }
+    }
+
+    if(maxThreads == 0) maxThreads = MAX_THREADS_DEFAULT;
+    if(serverPort == 0) serverPort = SERVER_PORT_DEFAULT;
+    if(packetSize == 0) packetSize = PACKET_SIZE_DEAFULT;
+    if(serverMode == 0) serverMode = SERVER_MODE_NBYTE;
+
+    cout << "Server settings" << endl;
+    cout << "threads: " << maxThreads << endl;
+    cout << "port:    " << serverPort << endl;
+    cout << "buffer:  " << packetSize << endl;
+    cout << "mode:    " << serverMode << endl << endl;
+
+    hMutex = CreateMutex(NULL, false, NULL);
     startWSA();
 
     struct sockaddr_in server;
-    listenSocket=socket(AF_INET, SOCK_STREAM,0);
+    listenSocket = socket(AF_INET, SOCK_STREAM, 0);
 
     server.sin_addr.s_addr = htonl(INADDR_ANY);
-    server.sin_port = htons(SERVER_PORT_DEFAULT);
+    server.sin_port = htons(serverPort);
     server.sin_family = AF_INET;
 
     if (listenSocket <0){
@@ -233,7 +294,7 @@ int main(){
     }else
         puts("Listen started");
 
-    //HANDLE threads[MAX_THREADS_DEFAULT];
+    //HANDLE threads[maxThreads];
     while(work)
         acceptConnections(listenSocket);
 
