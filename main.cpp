@@ -243,12 +243,17 @@ int main(int argc, char *argv[]){
                 }
             }
             else if(opt == "-h" || opt == "--help"){
-                cout << "OPTIONS" << endl << endl;
-                cout << "-b, --buffer [1-64]		Buffer length, default: 8" << endl;
-                cout << "-h, --help		        Show this message and close" << endl;
-                cout << "-p, --port [1-65535]		Listen port, default: 8080" << endl;
-                cout << "-s, --separator		        Messages till separator" << endl;
-                cout << "-t, --threads [1-10]		Maximum threads, default: 3" << endl;
+                cout << endl;
+                cout << "OPTIONS" << endl;
+                cout << "-b, --buffer [1-64]        Buffer length, default: 8" << endl;
+                cout << "-h, --help                 Show this message and close" << endl;
+                cout << "-p, --port [1-65535]       Listen port, default: 8080" << endl;
+                cout << "-s, --separator            Messages till separator" << endl;
+                cout << "-t, --threads [1-10]       Maximum threads, default: 3" << endl << endl;
+                cout << "SERVER OPTIONS" << endl;
+                cout << "l                          List all online clients" << endl;
+                cout << "k [number]                 Kill client" << endl;
+                cout << "q                          Server shutdown" << endl;                
                 return(0);
             }
         }
@@ -264,6 +269,8 @@ int main(int argc, char *argv[]){
     cout << "port:    " << serverPort << endl;
     cout << "buffer:  " << packetSize << endl;
     cout << "mode:    " << serverMode << endl << endl;
+
+
 
     hMutex = CreateMutex(NULL, false, NULL);
     startWSA();
