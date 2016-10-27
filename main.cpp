@@ -25,15 +25,15 @@ int packetSize;
 int serverMode;
 
 int currentThreads = 0;
-bool work = true;
-bool serverStart = false;
+bool work          = true;
+bool serverStart   = false;
 
 HANDLE hMutex;
 HANDLE serverThread;
 SOCKET listenSocket = INVALID_SOCKET;
 
-vector<int> clientId;
-vector<string> clientIp;
+vector<int>     clientId;
+vector<string>  clientIp;
 vector<u_short> clientPort;
 
 struct ArgsThread{
@@ -49,7 +49,7 @@ void closeSocket(SOCKET sock){
         if(clientId[i] == sock)
             kill_index = i;
     if(kill_index >= 0){
-        string ip = clientIp[kill_index];
+        string ip    = clientIp[kill_index];
         u_short port = clientPort[kill_index];
 
         clientId.erase(clientId.begin() + kill_index);
@@ -107,12 +107,12 @@ int clientProcess(ArgsThread *arg){
 
     bool exitFlag = false;
 
-    char *bufMsgChar = new char[bufMsg.length() + 1];
+    char *bufMsgChar  = new char[bufMsg.length()  + 1];
     char *modeMsgChar = new char[modeMsg.length() + 1];
-    strcpy(bufMsgChar, bufMsg.c_str());
+    strcpy(bufMsgChar,   bufMsg.c_str());
     strcpy(modeMsgChar, modeMsg.c_str());
 
-    sendMSG(mySocket, bufMsgChar);
+    sendMSG(mySocket,  bufMsgChar);
     sendMSG(mySocket, modeMsgChar);
 
     char buffer[packetSize + 1];
@@ -123,11 +123,13 @@ int clientProcess(ArgsThread *arg){
             if(recvN(mySocket, buffer) == 1)
                 cout << arg->ip << ":" << arg->port << " " << buffer << endl;
             else exitFlag = true;
+
         }else if(serverMode == SERVER_MODE_SEPARATOR){
             if(recvS(mySocket, buffer) == 1){
                 cout << arg->ip << ":" << arg->port << " " << buffer << endl;
                 memset(&buffer[0], 0, sizeof(buffer));
             }else exitFlag = true;
+
         }else exitFlag = true;
     }
 
@@ -167,7 +169,7 @@ int serverProcess(){
 void acceptConnections(SOCKET listenSocket){
     if(!serverStart){
         serverThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)serverProcess, NULL, 0, NULL);
-        serverStart = true;
+        serverStart  = true;
     }
 
     sockaddr_in clientInfo;
@@ -181,10 +183,10 @@ void acceptConnections(SOCKET listenSocket){
                 break;
         }
 
-        char *ip = inet_ntoa(clientInfo.sin_addr);
+        char *ip         = inet_ntoa(clientInfo.sin_addr);
         ArgsThread* args = new ArgsThread();
-        args->port = clientInfo.sin_port;
-        args->ip = string(ip);
+        args->port       = clientInfo.sin_port;
+        args->ip         = string(ip);
         args->threadData = (void*)acceptSocket;
 
         printf("Connection request received.\nNew socket was created at address %s:%d\n", ip, clientInfo.sin_port);
@@ -240,16 +242,16 @@ int main(int argc, char *argv[]){
             }
             else if(opt == "-h" || opt == "--help"){
                 cout << endl;
-                cout << "OPTIONS" << endl;
-                cout << "-b, --buffer [1-64]        Buffer length, default: 8" << endl;
-                cout << "-h, --help                 Show this message and close" << endl;
-                cout << "-p, --port [1-65535]       Listen port, default: 8080" << endl;
-                cout << "-s, --separator            Messages till separator" << endl;
-                cout << "-t, --threads [1-10]       Maximum threads, default: 3" << endl << endl;
-                cout << "SERVER OPTIONS" << endl;
-                cout << "l                          List all online clients" << endl;
-                cout << "k [number]                 Kill client" << endl;
-                cout << "q                          Server shutdown" << endl;                
+                cout << "OPTIONS"                                                   << endl;
+                cout << "-b, --buffer [1-64]        Buffer length, default: 8"      << endl;
+                cout << "-h, --help                 Show this message and close"    << endl;
+                cout << "-p, --port [1-65535]       Listen port, default: 8080"     << endl;
+                cout << "-s, --separator            Messages till separator"        << endl;
+                cout << "-t, --threads [1-10]       Maximum threads, default: 3"    << endl << endl;
+                cout << "SERVER OPTIONS"                                            << endl;
+                cout << "l                          List all online clients"        << endl;
+                cout << "k [number]                 Kill client"                    << endl;
+                cout << "q                          Server shutdown"                << endl;
                 return(0);
             }
         }
@@ -261,10 +263,10 @@ int main(int argc, char *argv[]){
     if(serverMode == 0) serverMode = SERVER_MODE_NBYTE;
 
     char temp[2];
-    bufMsg = bufMsg + itoa(packetSize, temp, 10) + "\n";
+    bufMsg  = bufMsg  + itoa(packetSize, temp, 10) + "\n";
     modeMsg = modeMsg + itoa(serverMode, temp, 10) + "\n";
 
-    cout << "Server settings" << endl;
+    cout << "Server settings"         << endl;
     cout << "Threads: " << maxThreads << endl;
     cout << "Port:    " << serverPort << endl;
     cout << "Buffer:  " << packetSize << endl;
@@ -277,8 +279,8 @@ int main(int argc, char *argv[]){
     listenSocket = socket(AF_INET, SOCK_STREAM, 0);
 
     server.sin_addr.s_addr = htonl(INADDR_ANY);
-    server.sin_port = htons(serverPort);
-    server.sin_family = AF_INET;
+    server.sin_port        = htons(serverPort);
+    server.sin_family      = AF_INET;
 
     if (listenSocket < 0){
         puts("Socket failed with error");
