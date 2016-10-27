@@ -131,7 +131,7 @@ int clientProcess(ArgsThread *arg){
         if(serverMode == SERVER_MODE_NBYTE){
             char buffer2[packetSize];
             rez = "";
-            if(readN(mySocket, buffer2, packetSize,rez) == 1)
+            if(readN(mySocket, buffer2, packetSize, rez) == 1)
                 cout << arg->ip << ":" << arg->port << " " << rez << endl;
             else{
                 closeSocket(mySocket);
