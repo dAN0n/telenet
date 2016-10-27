@@ -67,7 +67,7 @@ void closeSocket(SOCKET sock){
     ReleaseMutex(hMutex);
 }
 
-int recvN(SOCKET socket, char *buffer, string &rez){
+int recvN(SOCKET socket, char *buffer){
     int cnt, rc;
     char *tempbuf = buffer;
     cnt = packetSize;
@@ -75,10 +75,8 @@ int recvN(SOCKET socket, char *buffer, string &rez){
         rc = recv(socket, tempbuf, cnt, 0);
         if(rc <= 0) return 0;
         tempbuf += rc;
-        cnt -= rc;
+        cnt     -= rc;
     }
-    for(int i = 0; i < packetSize; i++)
-        rez = rez + buffer[i];
     return 1;
 }
 
@@ -108,7 +106,6 @@ int clientProcess(ArgsThread *arg){
     ReleaseMutex(hMutex);
 
     bool exitFlag = false;
-    string rez = "";
 
     char *bufMsgChar = new char[bufMsg.length() + 1];
     char *modeMsgChar = new char[modeMsg.length() + 1];
@@ -119,13 +116,12 @@ int clientProcess(ArgsThread *arg){
     sendMSG(mySocket, modeMsgChar);
 
     char buffer[packetSize + 1];
+    memset(&buffer[0], 0, sizeof(buffer));
 
     while(!exitFlag){
         if(serverMode == SERVER_MODE_NBYTE){
-            char buffer2[packetSize];
-            rez = "";
-            if(recvN(mySocket, buffer2, rez) == 1)
-                cout << arg->ip << ":" << arg->port << " " << rez << endl;
+            if(recvN(mySocket, buffer) == 1)
+                cout << arg->ip << ":" << arg->port << " " << buffer << endl;
             else exitFlag = true;
         }else if(serverMode == SERVER_MODE_SEPARATOR){
             if(recvS(mySocket, buffer) == 1){
