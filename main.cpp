@@ -97,8 +97,8 @@ int readTillSeparator(SOCKET socket, char *buffer){
     int rc;
     for (int i = 0; i < packetSize; i++) {
         rc = recv(socket, buffer + i, 1, 0);
-        if (rc == 0) return 0;
-        if (buffer[i] == '\n') return i;
+        if (rc <= 0) return 0;
+        if (buffer[i] == '\n') return 1;
     }
     return 1;
 }
@@ -137,7 +137,7 @@ int clientProcess(ArgsThread *arg){
                 cout << arg->ip << ":" << arg->port << " " << rez << endl;
             else exitFlag = true;
         }else if(serverMode == SERVER_MODE_SEPARATOR){
-            if(readTillSeparator(mySocket, buffer) != 0){
+            if(readTillSeparator(mySocket, buffer) == 1){
                 cout << arg->ip << ":" << arg->port << " " << buffer << endl;
                 memset(&buffer[0], 0, sizeof(buffer));
             }else exitFlag = true;
