@@ -4,7 +4,6 @@
 #include <vector>
 #include <cstring>
 #include <iostream>
-#include "transfer.cpp"
 
 #define MAX_THREADS_DEFAULT 3
 #define SERVER_PORT_DEFAULT 8080
@@ -53,9 +52,9 @@ void closeSocket(SOCKET sock){
     if(kill_index >= 0){
         string ip = clientIp[kill_index];
         u_short port = clientPort[kill_index];
-        clientId.erase(clientId.begin()+kill_index);
-        clientIp.erase(clientIp.begin()+kill_index);
-        clientPort.erase(clientPort.begin()+kill_index);
+        clientId.erase(clientId.begin() + kill_index);
+        clientIp.erase(clientIp.begin() + kill_index);
+        clientPort.erase(clientPort.begin() + kill_index);
 
         int temp = closesocket(sock);
         if(temp){
@@ -68,6 +67,54 @@ void closeSocket(SOCKET sock){
     ReleaseMutex(hMutex);
 }
 
+int readS(SOCKET socket, char *buffer, int len){
+    int cnt, rc;
+    cnt = len;
+    while(cnt > 0){
+        rc = recv(socket, buffer, cnt, 0);
+        if(rc <= 0){
+            //puts("Recv call failed. Error");
+            return -1;
+        }
+        buffer += rc;
+        cnt -= rc;
+    }
+    return len;
+}
+
+int readN(SOCKET socket, char *buffer, int len, string &rez){
+    int k = readS(socket, buffer, len);
+    if(k < 0){
+        //puts("Recv call failed. Error");
+        return 0;
+    }
+    for(int i = 0; i < len; i++)
+        rez = rez + buffer[i];
+    return 1;
+}
+
+int readTillSeparator(SOCKET socket, char *buffer, string& rez){
+    int rc = 1;
+    while(rc != 0){
+
+        rc = recv(socket, buffer, 1, 0);
+        if(rc <= 0){
+            //puts("Recv call failed. Error");
+            return 0;
+        }
+        if(buffer[0] == '\n')
+            return 1;
+        rez = rez + buffer[0];
+    }
+}
+
+int sendMSG(SOCKET socket, char* buffer){
+    int res = send(socket, buffer, strlen(buffer), 0);
+    if(res <= 0)
+        return 0;
+    return 1;
+}
+
 int clientProcess(ArgsThread *arg){
     SOCKET mySocket = (SOCKET)arg->threadData;
     WaitForSingleObject(hMutex, INFINITE);
@@ -77,11 +124,9 @@ int clientProcess(ArgsThread *arg){
     ReleaseMutex(hMutex);
     bool exitFlag = false;
     string rez = "";
-    transfer tr;
-    tr.socket = &mySocket;
-    tr.sendMSG(welcomeMsg);
+    sendMSG(mySocket, welcomeMsg);
     char buffer[1];
-    if(tr.readTillSeparator(buffer,rez) != 1){
+    if(readTillSeparator(mySocket, buffer, rez) != 1){
         closeSocket(mySocket);
         exitFlag = true;
     }
@@ -92,9 +137,9 @@ int clientProcess(ArgsThread *arg){
             cout << "hgg" << endl;
         if(check == 1){
             if(!nSetup){
-                tr.sendMSG(nMsg);
+                sendMSG(mySocket, nMsg);
                 rez = "";
-                if(tr.readTillSeparator(buffer, rez) == 1)
+                if(readTillSeparator(mySocket, buffer, rez) == 1)
                     n_length = atoi(rez.c_str());
                 else{
                     closeSocket(mySocket);
@@ -108,7 +153,7 @@ int clientProcess(ArgsThread *arg){
             }else{
                 char buffer2[n_length];
                 rez = "";
-                if(tr.readN(buffer2, n_length,rez) == 1)
+                if(readN(mySocket, buffer2, n_length,rez) == 1)
                     cout << arg->ip << ":" << arg->port << " " << rez << endl;
                 else{
                     closeSocket(mySocket);
@@ -117,7 +162,7 @@ int clientProcess(ArgsThread *arg){
             }
         }else if(check == 2){
             rez = "";
-            if(tr.readTillSeparator(buffer, rez) == 1)
+            if(readTillSeparator(mySocket, buffer, rez) == 1)
                 cout << arg->ip << ":" << arg->port << " " << rez << endl;
             else{
                 closeSocket(mySocket);
@@ -259,10 +304,10 @@ int main(int argc, char *argv[]){
     if(serverMode == 0) serverMode = SERVER_MODE_NBYTE;
 
     cout << "Server settings" << endl;
-    cout << "threads: " << maxThreads << endl;
-    cout << "port:    " << serverPort << endl;
-    cout << "buffer:  " << packetSize << endl;
-    cout << "mode:    " << serverMode << endl << endl;
+    cout << "Threads: " << maxThreads << endl;
+    cout << "Port:    " << serverPort << endl;
+    cout << "Buffer:  " << packetSize << endl;
+    cout << "Mode:    " << serverMode << endl << endl;
 
     hMutex = CreateMutex(NULL, false, NULL);
     startWSA();
