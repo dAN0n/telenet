@@ -7,7 +7,7 @@
 
 #define MAX_THREADS_DEFAULT 3
 #define SERVER_PORT_DEFAULT 8080
-#define PACKET_SIZE_DEAFULT 8
+#define PACKET_SIZE_DEFAULT 8
 
 #define SERVER_MODE_NBYTE 0
 #define SERVER_MODE_SEPARATOR 1
@@ -280,7 +280,7 @@ int main(int argc, char *argv[]){
 
     if(maxThreads == 0) maxThreads = MAX_THREADS_DEFAULT;
     if(serverPort == 0) serverPort = SERVER_PORT_DEFAULT;
-    if(packetSize == 0) packetSize = PACKET_SIZE_DEAFULT;
+    if(packetSize == 0) packetSize = PACKET_SIZE_DEFAULT;
     if(serverMode == 0) serverMode = SERVER_MODE_NBYTE;
 
     char temp[2];
