@@ -165,16 +165,6 @@ int serverProcess(){
             cout << "Stoping" << endl;
             closesocket(listenSocket);
 
-            /*
-            int count=clientId.size();
-            SOCKET socks[count];
-            for(int i=0;i<count;i++)
-                socks[i]=clientId[i];
-
-            for(int i=0;i<count;i++){
-                closeSocket(socks[i]);
-            }
-            */
             work = false;
 
             return 0;
@@ -199,10 +189,13 @@ void acceptConnections(SOCKET listenSocket){
         serverThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)serverProcess, NULL, 0, NULL);
         serverStart = true;
     }
+
+    sockaddr_in clientInfo;
+    int clientInfoSize = sizeof(clientInfo);
+    SOCKET acceptSocket;
+
     while(currentThreads < maxThreads){
-        sockaddr_in clientInfo;
-        int clientInfoSize = sizeof(clientInfo);
-        SOCKET acceptSocket = accept(listenSocket, (struct sockaddr*)&clientInfo, &clientInfoSize);
+        acceptSocket = accept(listenSocket, (struct sockaddr*)&clientInfo, &clientInfoSize);
 
         if(acceptSocket == INVALID_SOCKET){
                 break;
@@ -221,10 +214,9 @@ void acceptConnections(SOCKET listenSocket){
         CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)clientProcess, args, 0, NULL);
         currentThreads++;
     }
+
     if(currentThreads >= maxThreads){
-            sockaddr_in clientInfo;
-            int clientInfoSize = sizeof(clientInfo);
-            SOCKET acceptSocket = accept(listenSocket, (struct sockaddr*)&clientInfo, &clientInfoSize);
+            acceptSocket = accept(listenSocket, (struct sockaddr*)&clientInfo, &clientInfoSize);
 
             char fullMsg[] = "\nServer is full, connect later o/\n";
             sendMSG(acceptSocket, fullMsg);
@@ -330,10 +322,8 @@ int main(int argc, char *argv[]){
     }else
         puts("Listen started");
 
-    //HANDLE threads[maxThreads];
     while(work)
         acceptConnections(listenSocket);
 
-    //WSACleanup();
     return (EXIT_SUCCESS);
 }
