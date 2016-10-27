@@ -21,12 +21,14 @@ int serverPort;
 int packetSize;
 int serverMode;
 
+string bufMsg = "Buffer length: ";
+string modeMsg = "Server mode:   ";
+
 HANDLE hMutex;
-int current_threads = 0;
+int currentThreads = 0;
 bool readn;
 bool work = true;
 bool serverStart = false;
-char welcomeMsg[] = "Welcome to the server!\n";
 
 vector<int> clientId;
 vector<string> clientIp;
@@ -59,7 +61,7 @@ void closeSocket(SOCKET sock){
             cout << "Error. Accept socket was not closed" << endl;
         }else{
             cout << ip << ":" << port << " disconnected" << endl;
-            current_threads--;
+            currentThreads--;
         }
     }
     ReleaseMutex(hMutex);
@@ -122,7 +124,15 @@ int clientProcess(ArgsThread *arg){
     ReleaseMutex(hMutex);
     bool exitFlag = false;
     string rez = "";
-    sendMSG(mySocket, welcomeMsg);
+
+    char *bufMsgChar = new char[bufMsg.length() + 1];
+    char *modeMsgChar = new char[modeMsg.length() + 1];
+    strcpy(bufMsgChar, bufMsg.c_str());
+    strcpy(modeMsgChar, modeMsg.c_str());
+
+    sendMSG(mySocket, bufMsgChar);
+    sendMSG(mySocket, modeMsgChar);
+
     char buffer[1];
 
     while(!exitFlag){
@@ -154,15 +164,12 @@ int clientProcess(ArgsThread *arg){
 }
 
 int serverProcess(){
-    puts("Server process");
-    string commandKill = "k";
-    string commandShow = "l";
-    string commandStop = "q";
+    puts("\nServer process");
 
     while(true){
         string inputServer = "";
         cin >> inputServer;
-        if(strcmp(inputServer.c_str(), commandStop.c_str()) == 0){
+        if(inputServer == "q"){
             cout << "Stoping" << endl;
             closesocket(listenSocket);
 
@@ -179,12 +186,12 @@ int serverProcess(){
             work = false;
 
             return 0;
-        }else if(strcmp(inputServer.c_str(), commandShow.c_str()) == 0){
+        }else if(inputServer == "l"){
             cout << "client list:" << endl;
             for(int i = 0; i < clientId.size(); i++){
                 cout << clientId[i] << "|" << clientIp[i] << ":" << clientPort[i] << endl;
             }
-        }else if(strcmp(inputServer.c_str(), commandKill.c_str()) == 0){
+        }else if(inputServer == "k"){
             SOCKET sock;
             cin >> sock;
             closeSocket(sock);
@@ -199,7 +206,7 @@ void acceptConnections(SOCKET listenSocket){
         serverThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)serverProcess, NULL, 0, NULL);
         serverStart = true;
     }
-    while(current_threads < maxThreads){
+    while(currentThreads < maxThreads){
         sockaddr_in clientInfo;
         int clientInfoSize = sizeof(clientInfo);
         SOCKET acceptSocket = accept(listenSocket, (struct sockaddr*)&clientInfo, &clientInfoSize);
@@ -217,7 +224,7 @@ void acceptConnections(SOCKET listenSocket){
 
         printf("Connection request received.\nNew socket was created at address %s:%d\n", ip, clientInfo.sin_port);
         CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)clientProcess, args, 0, NULL);
-        current_threads++;
+        currentThreads++;
     }
 }
 
@@ -280,6 +287,10 @@ int main(int argc, char *argv[]){
     if(packetSize == 0) packetSize = PACKET_SIZE_DEAFULT;
     if(serverMode == 0) serverMode = SERVER_MODE_NBYTE;
 
+    char temp[2];
+    bufMsg = bufMsg + itoa(packetSize, temp, 10) + "\n";
+    modeMsg = modeMsg + itoa(serverMode, temp, 10) + "\n";
+
     cout << "Server settings" << endl;
     cout << "Threads: " << maxThreads << endl;
     cout << "Port:    " << serverPort << endl;
@@ -318,7 +329,6 @@ int main(int argc, char *argv[]){
     //HANDLE threads[maxThreads];
     while(work)
         acceptConnections(listenSocket);
-
 
     //WSACleanup();
     return (EXIT_SUCCESS);
