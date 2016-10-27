@@ -9,33 +9,32 @@
 #define SERVER_PORT_DEFAULT 8080
 #define PACKET_SIZE_DEFAULT 8
 
-#define SERVER_MODE_NBYTE 0
+#define SERVER_MODE_NBYTE     0
 #define SERVER_MODE_SEPARATOR 1
 
 #pragma comment(lib,"Ws2_32.lib")
 
 using namespace std;
 
+string bufMsg  = "Buffer length: ";
+string modeMsg = "Server mode:   ";
+
 int maxThreads;
 int serverPort;
 int packetSize;
 int serverMode;
 
-string bufMsg = "Buffer length: ";
-string modeMsg = "Server mode:   ";
-
-HANDLE hMutex;
 int currentThreads = 0;
-bool readn;
 bool work = true;
 bool serverStart = false;
+
+HANDLE hMutex;
+HANDLE serverThread;
+SOCKET listenSocket = INVALID_SOCKET;
 
 vector<int> clientId;
 vector<string> clientIp;
 vector<u_short> clientPort;
-HANDLE serverThread;
-
-SOCKET listenSocket = INVALID_SOCKET;
 
 struct ArgsThread{
     void *threadData;
@@ -52,6 +51,7 @@ void closeSocket(SOCKET sock){
     if(kill_index >= 0){
         string ip = clientIp[kill_index];
         u_short port = clientPort[kill_index];
+
         clientId.erase(clientId.begin() + kill_index);
         clientIp.erase(clientIp.begin() + kill_index);
         clientPort.erase(clientPort.begin() + kill_index);
@@ -67,33 +67,22 @@ void closeSocket(SOCKET sock){
     ReleaseMutex(hMutex);
 }
 
-int readS(SOCKET socket, char *buffer, int len){
+int recvN(SOCKET socket, char *buffer, string &rez){
     int cnt, rc;
-    cnt = len;
+    char *tempbuf = buffer;
+    cnt = packetSize;
     while(cnt > 0){
-        rc = recv(socket, buffer, cnt, 0);
-        if(rc <= 0){
-            //puts("Recv call failed. Error");
-            return -1;
-        }
-        buffer += rc;
+        rc = recv(socket, tempbuf, cnt, 0);
+        if(rc <= 0) return 0;
+        tempbuf += rc;
         cnt -= rc;
     }
-    return len;
-}
-
-int readN(SOCKET socket, char *buffer, int len, string &rez){
-    int k = readS(socket, buffer, len);
-    if(k < 0){
-        //puts("Recv call failed. Error");
-        return 0;
-    }
-    for(int i = 0; i < len; i++)
+    for(int i = 0; i < packetSize; i++)
         rez = rez + buffer[i];
     return 1;
 }
 
-int readTillSeparator(SOCKET socket, char *buffer){
+int recvS(SOCKET socket, char *buffer){
     int rc;
     for (int i = 0; i < packetSize; i++) {
         rc = recv(socket, buffer + i, 1, 0);
@@ -111,11 +100,13 @@ int sendMSG(SOCKET socket, char* buffer){
 
 int clientProcess(ArgsThread *arg){
     SOCKET mySocket = (SOCKET)arg->threadData;
+
     WaitForSingleObject(hMutex, INFINITE);
     clientId.insert(clientId.end(), mySocket);
     clientIp.insert(clientIp.end(), arg->ip);
     clientPort.insert(clientPort.end(), arg->port);
     ReleaseMutex(hMutex);
+
     bool exitFlag = false;
     string rez = "";
 
@@ -133,11 +124,11 @@ int clientProcess(ArgsThread *arg){
         if(serverMode == SERVER_MODE_NBYTE){
             char buffer2[packetSize];
             rez = "";
-            if(readN(mySocket, buffer2, packetSize, rez) == 1)
+            if(recvN(mySocket, buffer2, rez) == 1)
                 cout << arg->ip << ":" << arg->port << " " << rez << endl;
             else exitFlag = true;
         }else if(serverMode == SERVER_MODE_SEPARATOR){
-            if(readTillSeparator(mySocket, buffer) == 1){
+            if(recvS(mySocket, buffer) == 1){
                 cout << arg->ip << ":" << arg->port << " " << buffer << endl;
                 memset(&buffer[0], 0, sizeof(buffer));
             }else exitFlag = true;
@@ -145,7 +136,6 @@ int clientProcess(ArgsThread *arg){
     }
 
     closeSocket(mySocket);
-
     return 0;
 }
 
@@ -153,14 +143,14 @@ int serverProcess(){
     puts("\nServer process");
 
     while(true){
-        string inputServer = "";
+        string inputServer;
         cin >> inputServer;
+
         if(inputServer == "q"){
             cout << "Stoping" << endl;
             closesocket(listenSocket);
 
             work = false;
-
             return 0;
         }else if(inputServer == "l"){
             cout << "client list:" << endl;
@@ -193,9 +183,6 @@ void acceptConnections(SOCKET listenSocket){
 
         if(acceptSocket == INVALID_SOCKET){
                 break;
-            //closesocket(listenSocket);
-            //WSACleanup();
-            //ExitProcess(0);
         }
 
         char *ip = inet_ntoa(clientInfo.sin_addr);
