@@ -136,30 +136,22 @@ int clientProcess(ArgsThread *arg){
     char buffer[1];
 
     while(!exitFlag){
-        if(mySocket == INVALID_SOCKET)
-            cout << "hgg" << endl;
         if(serverMode == SERVER_MODE_NBYTE){
             char buffer2[packetSize];
             rez = "";
             if(readN(mySocket, buffer2, packetSize, rez) == 1)
                 cout << arg->ip << ":" << arg->port << " " << rez << endl;
-            else{
-                closeSocket(mySocket);
-                exitFlag = true;
-            }
+            else exitFlag = true;
         }else if(serverMode == SERVER_MODE_SEPARATOR){
             rez = "";
             if(readTillSeparator(mySocket, buffer, rez) == 1)
                 cout << arg->ip << ":" << arg->port << " " << rez << endl;
-            else{
-                closeSocket(mySocket);
-                exitFlag = true;
-            }
-        }else{
-            closeSocket(mySocket);
-            exitFlag = true;
-        }
+            else exitFlag = true;
+        }else exitFlag = true;
     }
+
+    closeSocket(mySocket);
+
     return 0;
 }
 
@@ -210,12 +202,14 @@ void acceptConnections(SOCKET listenSocket){
         sockaddr_in clientInfo;
         int clientInfoSize = sizeof(clientInfo);
         SOCKET acceptSocket = accept(listenSocket, (struct sockaddr*)&clientInfo, &clientInfoSize);
+
         if(acceptSocket == INVALID_SOCKET){
                 break;
             //closesocket(listenSocket);
             //WSACleanup();
             //ExitProcess(0);
         }
+
         char *ip = inet_ntoa(clientInfo.sin_addr);
         ArgsThread* args = new ArgsThread();
         args->port = clientInfo.sin_port;
@@ -225,6 +219,15 @@ void acceptConnections(SOCKET listenSocket){
         printf("Connection request received.\nNew socket was created at address %s:%d\n", ip, clientInfo.sin_port);
         CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)clientProcess, args, 0, NULL);
         currentThreads++;
+    }
+    if(currentThreads >= maxThreads){
+            sockaddr_in clientInfo;
+            int clientInfoSize = sizeof(clientInfo);
+            SOCKET acceptSocket = accept(listenSocket, (struct sockaddr*)&clientInfo, &clientInfoSize);
+
+            char fullMsg[] = "\nServer is full, connect later o/\n";
+            sendMSG(acceptSocket, fullMsg);
+            closesocket(acceptSocket);
     }
 }
 
