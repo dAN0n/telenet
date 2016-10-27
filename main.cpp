@@ -26,9 +26,7 @@ int current_threads = 0;
 bool readn;
 bool work = true;
 bool serverStart = false;
-char welcomeMsg[] = "Welcome to the server!\nHow you want to work?\n1 for n byte's messages\n2 for messages till separator\n";
-char nMsg[] = "Type n for n symbols session\n";
-int n_length;
+char welcomeMsg[] = "Welcome to the server!\n";
 
 vector<int> clientId;
 vector<string> clientIp;
@@ -126,41 +124,20 @@ int clientProcess(ArgsThread *arg){
     string rez = "";
     sendMSG(mySocket, welcomeMsg);
     char buffer[1];
-    if(readTillSeparator(mySocket, buffer, rez) != 1){
-        closeSocket(mySocket);
-        exitFlag = true;
-    }
-    int check = atoi(rez.c_str());
-    bool nSetup = false;
+
     while(!exitFlag){
         if(mySocket == INVALID_SOCKET)
             cout << "hgg" << endl;
-        if(check == 1){
-            if(!nSetup){
-                sendMSG(mySocket, nMsg);
-                rez = "";
-                if(readTillSeparator(mySocket, buffer, rez) == 1)
-                    n_length = atoi(rez.c_str());
-                else{
-                    closeSocket(mySocket);
-                    exitFlag = true;
-                }
-                if(n_length == 0){
-                    closeSocket(mySocket);
-                    exitFlag = true;
-                }
-                nSetup = true;
-            }else{
-                char buffer2[n_length];
-                rez = "";
-                if(readN(mySocket, buffer2, n_length,rez) == 1)
-                    cout << arg->ip << ":" << arg->port << " " << rez << endl;
-                else{
-                    closeSocket(mySocket);
-                    exitFlag = true;
-                }
+        if(serverMode == SERVER_MODE_NBYTE){
+            char buffer2[packetSize];
+            rez = "";
+            if(readN(mySocket, buffer2, packetSize,rez) == 1)
+                cout << arg->ip << ":" << arg->port << " " << rez << endl;
+            else{
+                closeSocket(mySocket);
+                exitFlag = true;
             }
-        }else if(check == 2){
+        }else if(serverMode == SERVER_MODE_SEPARATOR){
             rez = "";
             if(readTillSeparator(mySocket, buffer, rez) == 1)
                 cout << arg->ip << ":" << arg->port << " " << rez << endl;
