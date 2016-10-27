@@ -93,25 +93,19 @@ int readN(SOCKET socket, char *buffer, int len, string &rez){
     return 1;
 }
 
-int readTillSeparator(SOCKET socket, char *buffer, string& rez){
-    int rc = 1;
-    while(rc != 0){
-
-        rc = recv(socket, buffer, 1, 0);
-        if(rc <= 0){
-            //puts("Recv call failed. Error");
-            return 0;
-        }
-        if(buffer[0] == '\n')
-            return 1;
-        rez = rez + buffer[0];
+int readTillSeparator(SOCKET socket, char *buffer){
+    int rc;
+    for (int i = 0; i < packetSize; i++) {
+        rc = recv(socket, buffer + i, 1, 0);
+        if (rc == 0) return 0;
+        if (buffer[i] == '\n') return i;
     }
+    return 1;
 }
 
 int sendMSG(SOCKET socket, char* buffer){
     int res = send(socket, buffer, strlen(buffer), 0);
-    if(res <= 0)
-        return 0;
+    if(res <= 0) return 0;
     return 1;
 }
 
@@ -133,7 +127,7 @@ int clientProcess(ArgsThread *arg){
     sendMSG(mySocket, bufMsgChar);
     sendMSG(mySocket, modeMsgChar);
 
-    char buffer[1];
+    char buffer[packetSize + 1];
 
     while(!exitFlag){
         if(serverMode == SERVER_MODE_NBYTE){
@@ -143,10 +137,10 @@ int clientProcess(ArgsThread *arg){
                 cout << arg->ip << ":" << arg->port << " " << rez << endl;
             else exitFlag = true;
         }else if(serverMode == SERVER_MODE_SEPARATOR){
-            rez = "";
-            if(readTillSeparator(mySocket, buffer, rez) == 1)
-                cout << arg->ip << ":" << arg->port << " " << rez << endl;
-            else exitFlag = true;
+            if(readTillSeparator(mySocket, buffer) != 0){
+                cout << arg->ip << ":" << arg->port << " " << buffer << endl;
+                memset(&buffer[0], 0, sizeof(buffer));
+            }else exitFlag = true;
         }else exitFlag = true;
     }
 
