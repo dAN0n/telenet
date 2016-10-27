@@ -186,7 +186,8 @@ int serverProcess(){
         }else if(inputServer == "k"){
             SOCKET sock;
             cin >> sock;
-            closeSocket(sock);
+            if(cin.fail()) cin.clear();
+            else closeSocket(sock);
         }
     }
 
