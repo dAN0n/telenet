@@ -1,2 +1,2 @@
-server: main.cpp
-	g++ -lpthread -o server main.cpp -I . -lwsock32
+server: server.cpp
+	g++ -lpthread -o server server.cpp -I . -lwsock32

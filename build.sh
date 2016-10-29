@@ -1,4 +1,7 @@
 #!/bin/bash
 
-cd trivial
-make all
+# cd trivial
+# make all
+
+cd mthr
+make server
