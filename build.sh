@@ -4,4 +4,4 @@
 # make all
 
 cd mthr
-make server
+make jenkins
