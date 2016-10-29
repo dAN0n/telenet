@@ -4,4 +4,4 @@
 # make all
 
 cd mthr
-make jenkins
+make all
