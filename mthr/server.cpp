@@ -68,11 +68,10 @@ void closeSocket(SOCKET sock){
 }
 
 int recvN(SOCKET socket, char *buffer){
-    int cnt, rc;
     char *tempbuf = buffer;
-    cnt = packetSize;
+    int cnt = packetSize;
     while(cnt > 0){
-        rc = recv(socket, tempbuf, cnt, 0);
+        int rc = recv(socket, tempbuf, cnt, 0);
         if(rc <= 0) return 0;
         tempbuf += rc;
         cnt     -= rc;
@@ -81,9 +80,8 @@ int recvN(SOCKET socket, char *buffer){
 }
 
 int recvS(SOCKET socket, char *buffer){
-    int rc;
     for (int i = 0; i < packetSize; i++) {
-        rc = recv(socket, buffer + i, 1, 0);
+        int rc = recv(socket, buffer + i, 1, 0);
         if (rc <= 0) return 0;
         if (buffer[i] == '\n') return 1;
     }
