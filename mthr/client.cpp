@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <cstring>
 #include <iostream>
+#include <unistd.h>
 
 using namespace std;
 
@@ -13,7 +14,28 @@ char CONNECT_MESSAGE[17];
 char SERVER_IP[15] = "192.168.222.1";
 int SERVER_PORT = 8080;
 
-int main(void){
+int main(int argc, char *argv[]){
+
+	int opt;
+
+	while( (opt = getopt(argc, argv, "hi:p:")) != -1){
+		switch(opt){
+			case 'h':
+				cout << "OPTIONS"                          << endl;
+				cout << "-i [ip]        Server IP address" << endl;
+				cout << "-p [port]      Server port"       << endl;
+				return(0);
+			case 'i':
+				snprintf(SERVER_IP, 15, "%s", optarg);
+				break;
+			case 'p':
+				int port = atoi(optarg);
+				if(port > 0 && port < 65536) SERVER_PORT = port;
+		}
+	}
+
+	cout << SERVER_IP   << endl;
+	cout << SERVER_PORT << endl;
 
 	struct sockaddr_in peer;
 	int s, rc, fullCheck, mode;
@@ -26,14 +48,14 @@ int main(void){
 
 	if(s < 0){
 		perror("Socket error");
-		exit(1);
+		return(1);
 	}else puts("Socket created");
 
 	rc = connect(s, (struct sockaddr *) &peer, sizeof(peer));
 
 	if(rc){
 		perror("Connect error");
-		exit(1);
+		return(2);
 	}else puts("Connect success");
 
 	rc = recv(s, CONNECT_MESSAGE, sizeof(CONNECT_MESSAGE), 0);
@@ -45,12 +67,12 @@ int main(void){
 	cout << CONNECT_MESSAGE << endl;
 
 	mode = atoi(CONNECT_MESSAGE + 15);
-	if(fullCheck == 0) exit(0);
+	if(fullCheck == 0) return(0);
 
 	while(true){
 		int cnt = 0;
 		string msg;
-		cin >> msg;
+		getline(cin, msg);
 		// cout << msg << " " << msg.length() << endl;
 
 		if(msg == "quit") break;
@@ -68,9 +90,9 @@ int main(void){
 
 		if(rc <= 0){
 			perror("Send error");
-			exit(1);
+			return(3);
 		}
 	}
 
-	exit(0);
+	return(0);
 }
