@@ -83,7 +83,7 @@ int recvS(SOCKET socket, char *buffer){
     for (int i = 0; i < packetSize; i++) {
         int rc = recv(socket, buffer + i, 1, 0);
         if (rc <= 0) return 0;
-        if (buffer[i] == '\n') return 1;
+        if (buffer[i] == '\n' || buffer[i] == '\0') return 1;
     }
     return 1;
 }
