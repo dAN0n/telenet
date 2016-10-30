@@ -34,8 +34,8 @@ int main(int argc, char *argv[]){
         }
     }
 
-    cout << SERVER_IP   << endl;
-    cout << SERVER_PORT << endl;
+    // cout << SERVER_IP   << endl;
+    // cout << SERVER_PORT << endl;
 
     struct sockaddr_in peer;
     int s, rc, fullCheck, mode;
