@@ -37,9 +37,9 @@ int main(void){
 	}else puts("Connect success");
 
 	rc = recv(s, CONNECT_MESSAGE, sizeof(CONNECT_MESSAGE), 0);
-	cout << CONNECT_MESSAGE;
+	cout << endl << CONNECT_MESSAGE << endl;
 	rc = recv(s, CONNECT_MESSAGE, sizeof(CONNECT_MESSAGE), 0);
-	cout << CONNECT_MESSAGE;
+	cout << CONNECT_MESSAGE << endl;
 	mode = atoi(CONNECT_MESSAGE + 15);
 
 	while(true){
