@@ -16,7 +16,7 @@ int SERVER_PORT = 8080;
 int main(void){
 
 	struct sockaddr_in peer;
-	int s, rc, mode;
+	int s, rc, fullCheck, mode;
 
 	peer.sin_family = AF_INET;
 	peer.sin_addr.s_addr = inet_addr(SERVER_IP);
@@ -37,10 +37,15 @@ int main(void){
 	}else puts("Connect success");
 
 	rc = recv(s, CONNECT_MESSAGE, sizeof(CONNECT_MESSAGE), 0);
-	cout << endl << CONNECT_MESSAGE << endl;
+	cout << endl << CONNECT_MESSAGE;
+
+	fullCheck = strncmp(CONNECT_MESSAGE, "\nServer is full", 15);
+
 	rc = recv(s, CONNECT_MESSAGE, sizeof(CONNECT_MESSAGE), 0);
 	cout << CONNECT_MESSAGE << endl;
+
 	mode = atoi(CONNECT_MESSAGE + 15);
+	if(fullCheck == 0) exit(0);
 
 	while(true){
 		int cnt = 0;
