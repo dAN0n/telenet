@@ -18,6 +18,7 @@ using namespace std;
 
 string bufMsg  = "Buffer length: ";
 string modeMsg = "Server mode:   ";
+string fullMsg = "\nServer is full, connect later o/\n";
 
 int maxThreads;
 int serverPort;
@@ -88,8 +89,8 @@ int recvS(SOCKET socket, char *buffer){
     return 1;
 }
 
-int sendMSG(SOCKET socket, char* buffer){
-    int res = send(socket, buffer, strlen(buffer), 0);
+int sendMSG(SOCKET socket, string buffer){
+    int res = send(socket, buffer.data(), buffer.size(), 0);
     if(res <= 0) return 0;
     return 1;
 }
@@ -105,13 +106,8 @@ int clientProcess(ArgsThread *arg){
 
     bool exitFlag = false;
 
-    char *bufMsgChar  = new char[bufMsg.length()  + 1];
-    char *modeMsgChar = new char[modeMsg.length() + 1];
-    strcpy(bufMsgChar,   bufMsg.c_str());
-    strcpy(modeMsgChar, modeMsg.c_str());
-
-    sendMSG(mySocket,  bufMsgChar);
-    sendMSG(mySocket, modeMsgChar);
+    sendMSG(mySocket,  bufMsg);
+    sendMSG(mySocket, modeMsg);
 
     char buffer[packetSize + 1];
     memset(&buffer[0], 0, sizeof(buffer));
@@ -195,7 +191,6 @@ void acceptConnections(SOCKET listenSocket){
     if(currentThreads >= maxThreads){
             acceptSocket = accept(listenSocket, (struct sockaddr*)&clientInfo, &clientInfoSize);
 
-            char fullMsg[] = "\nServer is full, connect later o/\n";
             sendMSG(acceptSocket, fullMsg);
             closesocket(acceptSocket);
     }
