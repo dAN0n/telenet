@@ -25,44 +25,37 @@ int serverPort;
 int packetSize;
 int serverMode;
 
-int currentThreads = 0;
-bool work          = true;
-bool serverStart   = false;
+bool work        = true;
+bool serverStart = false;
 
 HANDLE hMutex;
 HANDLE serverThread;
 SOCKET listenSocket = INVALID_SOCKET;
 
-vector<int>     clientId;
-vector<string>  clientIp;
-vector<u_short> clientPort;
-
-struct ArgsThread{
-    void *threadData;
-    string ip;
-    u_short port;
+struct clientDescriptor{
+    SOCKET sock;
+    char *ip;
+    int port;
 };
 
-void closeSocket(SOCKET sock){
+vector<clientDescriptor> clientDesc;
+
+void closeSocket(SOCKET socket){
     WaitForSingleObject(hMutex, INFINITE);
-    int kill_index = -1;
-    for(int i = 0; i < clientId.size(); i++)
-        if(clientId[i] == sock)
-            kill_index = i;
-    if(kill_index >= 0){
-        string ip    = clientIp[kill_index];
-        u_short port = clientPort[kill_index];
+    int killIndex = -1;
+    for(int i = 0; i < clientDesc.size(); i++)
+        if(clientDesc[i].sock == socket) killIndex = i;
+    if(killIndex >= 0){
+        string ip = clientDesc[killIndex].ip;
+        int port  = clientDesc[killIndex].port;
 
-        clientId.erase(clientId.begin() + kill_index);
-        clientIp.erase(clientIp.begin() + kill_index);
-        clientPort.erase(clientPort.begin() + kill_index);
+        clientDesc.erase(clientDesc.begin() + killIndex);
+        int temp = closesocket(socket);
 
-        int temp = closesocket(sock);
         if(temp){
             cout << "Error. Accept socket was not closed" << endl;
         }else{
-            cout << ip << ":" << port << " disconnected" << endl;
-            currentThreads--;
+            cout << ip << ":" << port << " was disconnected" << endl;
         }
     }
     ReleaseMutex(hMutex);
@@ -95,39 +88,36 @@ int sendMSG(SOCKET socket, string buffer){
     return 1;
 }
 
-int clientProcess(ArgsThread *arg){
-    SOCKET mySocket = (SOCKET)arg->threadData;
-
-    WaitForSingleObject(hMutex, INFINITE);
-    clientId.insert(clientId.end(), mySocket);
-    clientIp.insert(clientIp.end(), arg->ip);
-    clientPort.insert(clientPort.end(), arg->port);
-    ReleaseMutex(hMutex);
-
+int clientProcess(SOCKET socket){
+    int ind;
     bool exitFlag = false;
 
-    sendMSG(mySocket,  bufMsg);
-    sendMSG(mySocket, modeMsg);
+    for (int i = 0; i < clientDesc.size(); i++){
+        if (clientDesc[i].sock == socket) ind = i;
+    }
+
+    sendMSG(socket,  bufMsg);
+    sendMSG(socket, modeMsg);
 
     char buffer[packetSize + 1];
     memset(&buffer[0], 0, sizeof(buffer));
 
     while(!exitFlag){
         if(serverMode == SERVER_MODE_NBYTE){
-            if(recvN(mySocket, buffer) == 1)
-                cout << arg->ip << ":" << arg->port << " " << buffer << endl;
+            if(recvN(socket, buffer) == 1)
+                cout << clientDesc[ind].ip << ":" << clientDesc[ind].port << " " << buffer << endl;
             else exitFlag = true;
 
         }else if(serverMode == SERVER_MODE_SEPARATOR){
-            if(recvS(mySocket, buffer) == 1){
-                cout << arg->ip << ":" << arg->port << " " << buffer << endl;
+            if(recvS(socket, buffer) == 1){
+                cout << clientDesc[ind].ip << ":" << clientDesc[ind].port << " " << buffer << endl;
                 memset(&buffer[0], 0, sizeof(buffer));
             }else exitFlag = true;
 
         }else exitFlag = true;
     }
 
-    closeSocket(mySocket);
+    closeSocket(socket);
     return 0;
 }
 
@@ -146,8 +136,8 @@ int serverProcess(){
             return 0;
         }else if(inputServer == "l"){
             cout << "client list:" << endl;
-            for(int i = 0; i < clientId.size(); i++){
-                cout << clientId[i] << "|" << clientIp[i] << ":" << clientPort[i] << endl;
+            for(int i = 0; i < clientDesc.size(); i++){
+                cout << clientDesc[i].sock << "|" << clientDesc[i].ip << ":" << clientDesc[i].port << endl;
             }
         }else if(inputServer == "k"){
             SOCKET sock;
@@ -166,33 +156,39 @@ void acceptConnections(SOCKET listenSocket){
         serverStart  = true;
     }
 
+    clientDescriptor desc;
     sockaddr_in clientInfo;
     int clientInfoSize = sizeof(clientInfo);
     SOCKET acceptSocket;
 
-    while(currentThreads < maxThreads){
+    while(clientDesc.size() < maxThreads){
         acceptSocket = accept(listenSocket, (struct sockaddr*)&clientInfo, &clientInfoSize);
 
         if(acceptSocket == INVALID_SOCKET){
                 break;
         }
 
-        char *ip         = inet_ntoa(clientInfo.sin_addr);
-        ArgsThread* args = new ArgsThread();
-        args->port       = clientInfo.sin_port;
-        args->ip         = string(ip);
-        args->threadData = (void*)acceptSocket;
+        desc.sock = acceptSocket;
+        desc.ip   = inet_ntoa(clientInfo.sin_addr);
+        desc.port = clientInfo.sin_port;
 
-        printf("Connection request received.\nNew socket was created at address %s:%d\n", ip, clientInfo.sin_port);
-        CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)clientProcess, args, 0, NULL);
-        currentThreads++;
+        WaitForSingleObject(hMutex, INFINITE);
+        clientDesc.push_back(desc);
+        ReleaseMutex(hMutex);
+
+        printf("Connection request received.\nNew socket was created at address %s:%d\n", desc.ip, clientInfo.sin_port);
+        CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)clientProcess, (void*)acceptSocket, 0, NULL);
     }
 
-    if(currentThreads >= maxThreads){
-            acceptSocket = accept(listenSocket, (struct sockaddr*)&clientInfo, &clientInfoSize);
+    if(clientDesc.size() >= maxThreads){
+        acceptSocket = accept(listenSocket, (struct sockaddr*)&clientInfo, &clientInfoSize);
 
-            sendMSG(acceptSocket, fullMsg);
-            closesocket(acceptSocket);
+        char *ip  = inet_ntoa(clientInfo.sin_addr);
+
+        sendMSG(acceptSocket, fullMsg);
+        closesocket(acceptSocket);
+
+        printf("%s:%d was disconnected because of server overload\n", ip, clientInfo.sin_port);
     }
 }
 
@@ -297,5 +293,5 @@ int main(int argc, char *argv[]){
     while(work)
         acceptConnections(listenSocket);
 
-    return (EXIT_SUCCESS);
+    return 0;
 }
