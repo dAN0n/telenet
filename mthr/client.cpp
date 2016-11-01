@@ -72,6 +72,8 @@ int main(int argc, char *argv[]){
     while(true){
         int cnt = 0;
         string msg;
+
+        cout << "> ";
         getline(cin, msg);
         // cout << msg << " " << msg.length() << endl;
 
