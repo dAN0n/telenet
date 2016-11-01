@@ -126,18 +126,22 @@ int serverProcess(){
 
     while(true){
         string inputServer;
+        cout << "> ";
         cin >> inputServer;
 
         if(inputServer == "q"){
-            cout << "Stoping" << endl;
+            cout << "Stoping server..." << endl;
             closesocket(listenSocket);
 
             work = false;
             return 0;
         }else if(inputServer == "l"){
-            cout << "client list:" << endl;
-            for(int i = 0; i < clientDesc.size(); i++){
-                cout << clientDesc[i].sock << "|" << clientDesc[i].ip << ":" << clientDesc[i].port << endl;
+            if(clientDesc.size() == 0) cout << "Client list is empty" << endl;
+            else{
+                cout << "Client list:" << endl;
+                for(int i = 0; i < clientDesc.size(); i++){
+                    cout << clientDesc[i].sock << "|" << clientDesc[i].ip << ":" << clientDesc[i].port << endl;
+                }
             }
         }else if(inputServer == "k"){
             SOCKET sock;
