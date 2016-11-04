@@ -1,4 +1,4 @@
-CXX = g++
+CXX   = g++
 MINGW = i686-w64-mingw32-g++
 CROSS = x86_64-unknown-linux-gnu-g++
 
