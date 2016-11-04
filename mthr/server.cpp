@@ -130,7 +130,7 @@ int serverProcess(){
         cin >> inputServer;
 
         if(inputServer == "q"){
-            cout << "Stoping server..." << endl;
+            cout << "Stopping server..." << endl;
             closesocket(listenSocket);
 
             work = false;
