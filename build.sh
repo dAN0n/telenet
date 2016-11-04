@@ -4,4 +4,4 @@
 # make all
 
 cd mthr
-make all
+make
