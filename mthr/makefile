@@ -2,7 +2,7 @@ CXX = g++
 MINGW = i686-w64-mingw32-g++
 CROSS = x86_64-unknown-linux-gnu-g++
 
-FLAGS     = -lpthread -I .
+FLAGS     = -I . -lpthread
 WIN_FLAGS = -lwsock32 -static-libgcc -static-libstdc++
 
 SERVER_NAME = -o server.exe
@@ -17,7 +17,7 @@ jenkins-client: CXX = ${CROSS}
 jenkins-client: client.cpp client
 
 server: server.cpp
-	${CXX} ${FLAGS} ${WIN_FLAGS} ${SERVER_NAME} $<
+	${CXX} ${SERVER_NAME} $< ${FLAGS} ${WIN_FLAGS}
 
 client: client.cpp
-	${CXX} ${FLAGS} ${CLIENT_NAME} $<
+	${CXX} ${CLIENT_NAME} $< ${FLAGS}
