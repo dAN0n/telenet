@@ -5,7 +5,8 @@
 #include <cstring>
 #include <iostream>
 
-#define MAX_THREADS_DEFAULT 3
+#define MAX_THREADS_POSSIBLE 10
+#define MAX_THREADS_DEFAULT 2
 #define SERVER_PORT_DEFAULT 8080
 #define PACKET_SIZE_DEFAULT 8
 
@@ -20,129 +21,119 @@ string bufMsg  = "Buffer length: ";
 string modeMsg = "Server mode:   ";
 string fullMsg = "\nServer is full, connect later o/\n";
 
+struct clientDescriptor{
+    SOCKET sock;
+    HANDLE handle;
+    char *ip;
+    int port;
+};
+
 int maxThreads;
 int serverPort;
 int packetSize;
 int serverMode;
 
-bool work        = true;
-bool serverStart = false;
-
-HANDLE hMutex;
-HANDLE serverThread;
+clientDescriptor clientDesc[MAX_THREADS_POSSIBLE];
 SOCKET listenSocket = INVALID_SOCKET;
+const HANDLE hMutex = CreateMutex(NULL, false, NULL);
 
-struct clientDescriptor{
-    SOCKET sock;
-    char *ip;
-    int port;
-};
-
-vector<clientDescriptor> clientDesc;
-
-void closeSocket(SOCKET socket){
+void closeSocket(int ind){
     WaitForSingleObject(hMutex, INFINITE);
-    int killIndex = -1;
-    for(int i = 0; i < clientDesc.size(); i++)
-        if(clientDesc[i].sock == socket) killIndex = i;
-    if(killIndex >= 0){
-        string ip = clientDesc[killIndex].ip;
-        int port  = clientDesc[killIndex].port;
-
-        clientDesc.erase(clientDesc.begin() + killIndex);
-        int temp = closesocket(socket);
-
-        if(temp){
-            cout << "Error. Accept socket was not closed" << endl;
-        }else{
-            cout << ip << ":" << port << " was disconnected" << endl;
+    if(ind >= 0 && ind < maxThreads && clientDesc[ind].sock != INVALID_SOCKET){
+        if(shutdown(clientDesc[ind].sock, SD_BOTH))
+            puts("Shutdown failed");
+        else{
+            if(closesocket(clientDesc[ind].sock))
+                puts("Closesocket failed");
+            else{
+                cout << clientDesc[ind].ip << ":" << clientDesc[ind].port << " was disconnected" << endl;
+                clientDesc[ind].sock = INVALID_SOCKET;
+            }
         }
     }
     ReleaseMutex(hMutex);
 }
 
 int recvN(SOCKET socket, char *buffer){
-    char *tempbuf = buffer;
     int cnt = packetSize;
     while(cnt > 0){
-        int rc = recv(socket, tempbuf, cnt, 0);
+        int rc = recv(socket, buffer, cnt, 0);
         if(rc <= 0) return 0;
-        tempbuf += rc;
-        cnt     -= rc;
+        buffer += rc;
+        cnt    -= rc;
     }
     return 1;
 }
 
 int recvS(SOCKET socket, char *buffer){
-    for (int i = 0; i < packetSize; i++) {
-        int rc = recv(socket, buffer + i, 1, 0);
-        if (rc <= 0) return 0;
+    for(int i = 0; i < packetSize; i++) {
+        if(recv(socket, buffer + i, 1, 0) <= 0) return 0;
         if (buffer[i] == '\n' || buffer[i] == '\0') return 1;
     }
     return 1;
 }
 
 int sendMSG(SOCKET socket, string buffer){
-    int res = send(socket, buffer.data(), buffer.size(), 0);
-    if(res <= 0) return 0;
+    if(send(socket, buffer.data(), buffer.size(), 0) <= 0) return 0;
     return 1;
 }
 
-int clientProcess(SOCKET socket){
+DWORD WINAPI clientProcess(void* socket){
     int ind;
-    bool exitFlag = false;
+    int rc = 1;
 
-    for (int i = 0; i < clientDesc.size(); i++){
-        if (clientDesc[i].sock == socket) ind = i;
+    for (int i = 0; i < maxThreads; i++){
+        if (clientDesc[i].sock == (SOCKET)socket) ind = i;
     }
 
     string Msg = bufMsg + modeMsg;
-    sendMSG(socket, Msg);
+    sendMSG(clientDesc[ind].sock, Msg);
 
     char buffer[packetSize + 1];
     memset(&buffer[0], 0, sizeof(buffer));
 
-    while(!exitFlag){
-        if(serverMode == SERVER_MODE_NBYTE){
-            if(recvN(socket, buffer) == 1)
-                cout << clientDesc[ind].ip << ":" << clientDesc[ind].port << " " << buffer << endl;
-            else exitFlag = true;
+    while(rc != 0){
+        if(serverMode == SERVER_MODE_NBYTE)
+            rc = recvN(clientDesc[ind].sock, buffer);
+        else if(serverMode == SERVER_MODE_SEPARATOR)
+            rc = recvS(clientDesc[ind].sock, buffer);
+        else break;
 
-        }else if(serverMode == SERVER_MODE_SEPARATOR){
-            if(recvS(socket, buffer) == 1){
-                cout << clientDesc[ind].ip << ":" << clientDesc[ind].port << " " << buffer << endl;
-                memset(&buffer[0], 0, sizeof(buffer));
-            }else exitFlag = true;
+        if(rc != 0){
+            cout << clientDesc[ind].ip << ":" << clientDesc[ind].port << " " << buffer << endl;
+            memset(&buffer[0], 0, sizeof(buffer));
+        }
 
-        }else exitFlag = true;
     }
 
-    closeSocket(socket);
+    closeSocket(ind);
     return 0;
 }
 
-int serverProcess(){
-    puts("\nServer process");
-
+DWORD WINAPI serverProcess(){
     while(true){
         string inputServer;
-        cout << "> ";
         cin >> inputServer;
 
         if(inputServer == "q"){
-            cout << "Stopping server..." << endl;
+            puts("Stopping server...");
+            shutdown(listenSocket, SD_BOTH);
             closesocket(listenSocket);
 
-            work = false;
             return 0;
         }else if(inputServer == "l"){
-            if(clientDesc.size() == 0) cout << "Client list is empty" << endl;
-            else{
-                cout << "Client list:" << endl;
-                for(int i = 0; i < clientDesc.size(); i++){
-                    cout << clientDesc[i].sock << "|" << clientDesc[i].ip << ":" << clientDesc[i].port << endl;
+            puts("Client list:");
+
+            WaitForSingleObject(hMutex, INFINITE);
+            int lineCount = 0;
+            for(int i = 0; i < maxThreads; i++){
+                if(clientDesc[i].sock != INVALID_SOCKET){
+                    cout << i << "|" << clientDesc[i].ip << ":" << clientDesc[i].port << endl;
+                    lineCount++;
                 }
             }
+            if(lineCount == 0) puts("empty");
+            ReleaseMutex(hMutex);
         }else if(inputServer == "k"){
             SOCKET sock;
             cin >> sock;
@@ -154,46 +145,65 @@ int serverProcess(){
     return 0;
 }
 
-void acceptConnections(SOCKET listenSocket){
-    if(!serverStart){
-        serverThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)serverProcess, NULL, 0, NULL);
-        serverStart  = true;
-    }
-
+DWORD WINAPI acceptConnections(void *listenSocket){
+    SOCKET acceptSocket;
     clientDescriptor desc;
     sockaddr_in clientInfo;
     int clientInfoSize = sizeof(clientInfo);
-    SOCKET acceptSocket;
 
-    while(clientDesc.size() < maxThreads){
-        acceptSocket = accept(listenSocket, (struct sockaddr*)&clientInfo, &clientInfoSize);
+    while(true){
+        int ind = -1;
 
-        if(acceptSocket == INVALID_SOCKET){
-                break;
+        acceptSocket = accept((SOCKET)listenSocket, (struct sockaddr*)&clientInfo, &clientInfoSize);
+
+        if(acceptSocket == INVALID_SOCKET) break;
+        else if(acceptSocket < 0){
+            puts("Accept failed");
+            continue;
+        }
+
+        WaitForSingleObject(hMutex, INFINITE);
+        for (int i = maxThreads - 1; i >= 0; i--)
+        if(clientDesc[i].sock == INVALID_SOCKET){
+            ind = i;
+        }
+        ReleaseMutex(hMutex);
+
+        if(ind < 0){
+            char *ip  = inet_ntoa(clientInfo.sin_addr);
+
+            sendMSG(acceptSocket, fullMsg);
+            closesocket(acceptSocket);
+
+            cout << ip << ":" << clientInfo.sin_port << " was disconnected because of server overload" << endl;
+            continue;
         }
 
         desc.sock = acceptSocket;
         desc.ip   = inet_ntoa(clientInfo.sin_addr);
         desc.port = clientInfo.sin_port;
 
-        WaitForSingleObject(hMutex, INFINITE);
-        clientDesc.push_back(desc);
-        ReleaseMutex(hMutex);
+        cout << "Connection request received." << endl;
+        cout << "New socket was created at address " << desc.ip << ":" << desc.port << endl;
 
-        printf("Connection request received.\nNew socket was created at address %s:%d\n", desc.ip, clientInfo.sin_port);
-        CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)clientProcess, (void*)acceptSocket, 0, NULL);
+        clientDesc[ind] = desc;
+        clientDesc[ind].handle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)clientProcess, (void *)desc.sock, 0, NULL);
     }
 
-    if(clientDesc.size() >= maxThreads){
-        acceptSocket = accept(listenSocket, (struct sockaddr*)&clientInfo, &clientInfoSize);
+    WaitForSingleObject(hMutex, INFINITE);
+    vector<HANDLE> hClients;
+    for(int i = 0; i < maxThreads; i++)
+        if(clientDesc[i].sock != INVALID_SOCKET){
+            hClients.push_back(clientDesc[i].handle);
+            closeSocket(i);
+        }
+    ReleaseMutex(hMutex);
 
-        char *ip  = inet_ntoa(clientInfo.sin_addr);
-
-        sendMSG(acceptSocket, fullMsg);
-        closesocket(acceptSocket);
-
-        printf("%s:%d was disconnected because of server overload\n", ip, clientInfo.sin_port);
+    if (!hClients.empty()){
+        HANDLE *handles = &hClients[0];
+        WaitForMultipleObjects(sizeof(handles) / sizeof(HANDLE), handles, TRUE, INFINITE);
     }
+    return 0;
 }
 
 void startWSA(){
@@ -202,8 +212,7 @@ void startWSA(){
     if(iResult != 0){
         printf("WSAStartup failed with error: %d\n", iResult);
         exit(1);
-    }else
-        puts("WSAStartup success");
+    }
 }
 
 int main(int argc, char *argv[]){
@@ -265,10 +274,14 @@ int main(int argc, char *argv[]){
     cout << "Buffer:  " << packetSize << endl;
     cout << "Mode:    " << serverMode << endl << endl;
 
-    hMutex = CreateMutex(NULL, false, NULL);
     startWSA();
 
-    struct sockaddr_in server;
+    WaitForSingleObject(hMutex, INFINITE);
+    for (int i = 0; i < maxThreads; i++)
+        clientDesc[i].sock = INVALID_SOCKET;
+    ReleaseMutex(hMutex);
+
+    sockaddr_in server;
     listenSocket = socket(AF_INET, SOCK_STREAM, 0);
 
     server.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -279,23 +292,27 @@ int main(int argc, char *argv[]){
         puts("Socket failed with error");
         WSACleanup();
         exit(2);
-    }else
-        puts("Socket created");
+    }
 
     if(bind(listenSocket, (struct sockaddr *) &server, sizeof(server)) < 0){
         puts("Bind failed. Error");
         exit(3);
-    }else
-        puts("Bind created");
+    }
 
     if(listen(listenSocket, SOCKET_ERROR) == SOCKET_ERROR){
         puts("Listen call failed. Error");
         exit(4);
-    }else
-        puts("Listen started");
+    }
 
-    while(work)
-        acceptConnections(listenSocket);
+    HANDLE hAccept = CreateThread(NULL, 0, acceptConnections, (void *)listenSocket, 0, NULL);
 
+    serverProcess();
+
+    WaitForSingleObject(hAccept, INFINITE);
+
+    // while(work)
+    //     acceptConnections(listenSocket);
+
+    WSACleanup();
     return 0;
 }
