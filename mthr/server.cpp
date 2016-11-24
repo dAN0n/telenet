@@ -96,8 +96,8 @@ int clientProcess(SOCKET socket){
         if (clientDesc[i].sock == socket) ind = i;
     }
 
-    sendMSG(socket,  bufMsg);
-    sendMSG(socket, modeMsg);
+    string Msg = bufMsg + modeMsg;
+    sendMSG(socket, Msg);
 
     char buffer[packetSize + 1];
     memset(&buffer[0], 0, sizeof(buffer));
@@ -224,7 +224,7 @@ int main(int argc, char *argv[]){
             else if(opt == "-b" || opt == "--buffer"){
                 if(i < argc - 1){ 
                     int arg = atoi(argv[i + 1]);
-                    if(arg > 0 && arg < 65) packetSize = arg;
+                    if(arg > 0 && arg < 10) packetSize = arg;
                 }
             }
             else if(opt == "-t" || opt == "--threads"){
@@ -236,7 +236,7 @@ int main(int argc, char *argv[]){
             else if(opt == "-h" || opt == "--help"){
                 cout << endl;
                 cout << "OPTIONS"                                                   << endl;
-                cout << "-b, --buffer [1-64]        Buffer length, default: 8"      << endl;
+                cout << "-b, --buffer [1-9]         Buffer length, default: 8"      << endl;
                 cout << "-h, --help                 Show this message and close"    << endl;
                 cout << "-p, --port [1-65535]       Listen port, default: 8080"     << endl;
                 cout << "-s, --separator            Messages till separator"        << endl;

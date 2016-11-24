@@ -10,9 +10,21 @@
 
 using namespace std;
 
-char CONNECT_MESSAGE[17];
+char CONNECT_MESSAGE[34];
 char SERVER_IP[15] = "192.168.222.1";
 int SERVER_PORT = 8080;
+
+int recvServerMsg(int socket){
+    char *tempbuf = CONNECT_MESSAGE;
+    int cnt = sizeof(CONNECT_MESSAGE);
+    while(cnt > 0){
+        int rc = recv(socket, tempbuf, cnt, 0);
+        if(rc <= 0) return 0;
+        tempbuf += rc;
+        cnt     -= rc;
+    }
+    return 1;
+}
 
 int main(int argc, char *argv[]){
 
@@ -58,16 +70,12 @@ int main(int argc, char *argv[]){
         return(2);
     }else puts("Connect success");
 
-    rc = recv(s, CONNECT_MESSAGE, sizeof(CONNECT_MESSAGE), 0);
-    cout << endl << CONNECT_MESSAGE;
+    if(recvServerMsg(s) == 1) cout << endl << CONNECT_MESSAGE << endl;
 
     fullCheck = strncmp(CONNECT_MESSAGE, "\nServer is full", 15);
-
-    rc = recv(s, CONNECT_MESSAGE, sizeof(CONNECT_MESSAGE), 0);
-    cout << CONNECT_MESSAGE << endl;
-
-    mode = atoi(CONNECT_MESSAGE + 15);
     if(fullCheck == 0) return(0);
+
+    mode = atoi(CONNECT_MESSAGE + 32);
 
     while(true){
         int cnt = 0;
