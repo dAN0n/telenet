@@ -40,16 +40,16 @@ const HANDLE hMutex = CreateMutex(NULL, false, NULL);
 void closeSocket(int ind){
     WaitForSingleObject(hMutex, INFINITE);
     if(ind >= 0 && ind < maxThreads && clientDesc[ind].sock != INVALID_SOCKET){
-        if(shutdown(clientDesc[ind].sock, SD_BOTH))
-            puts("Shutdown failed");
-        else{
+        // if(shutdown(clientDesc[ind].sock, SD_BOTH))
+            // puts("Shutdown failed");
+        // else{
             if(closesocket(clientDesc[ind].sock))
                 puts("Closesocket failed");
             else{
                 cout << clientDesc[ind].ip << ":" << clientDesc[ind].port << " was disconnected" << endl;
                 clientDesc[ind].sock = INVALID_SOCKET;
             }
-        }
+        // }
     }
     ReleaseMutex(hMutex);
 }
@@ -173,6 +173,7 @@ DWORD WINAPI acceptConnections(void *listenSocket){
             char *ip  = inet_ntoa(clientInfo.sin_addr);
 
             sendMSG(acceptSocket, fullMsg);
+            shutdown(acceptSocket, SD_BOTH);
             closesocket(acceptSocket);
 
             cout << ip << ":" << clientInfo.sin_port << " was disconnected because of server overload" << endl;
@@ -200,8 +201,7 @@ DWORD WINAPI acceptConnections(void *listenSocket){
     ReleaseMutex(hMutex);
 
     if (!hClients.empty()){
-        HANDLE *handles = &hClients[0];
-        WaitForMultipleObjects(sizeof(handles) / sizeof(HANDLE), handles, TRUE, INFINITE);
+        WaitForMultipleObjects(hClients.size(), hClients.data(), TRUE, INFINITE);
     }
     return 0;
 }
@@ -309,9 +309,6 @@ int main(int argc, char *argv[]){
     serverProcess();
 
     WaitForSingleObject(hAccept, INFINITE);
-
-    // while(work)
-    //     acceptConnections(listenSocket);
 
     WSACleanup();
     return 0;

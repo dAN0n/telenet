@@ -96,11 +96,11 @@ int main(int argc, char *argv[]){
 
             // cout << "rc: " << rc << endl;
             // cout << "cnt: " << cnt << endl;
-            }
+        }
 
         if(rc <= 0){
             perror("Send error");
-            return(3);
+            break;
         }
     }
 
