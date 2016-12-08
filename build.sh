@@ -3,5 +3,8 @@
 # cd trivial
 # make all
 
-cd mthr
+# cd mthr
+# make
+
+cd term
 make
