@@ -9,12 +9,15 @@ string MSG_USER_NOT_EXISTS   = "This user doesn't exists!\n";
 string MSG_USER_ONLINE       = "This user already online!\n";
 string MSG_NO_PERMISSIONS    = "You doesn't have permissions for this command!\n";
 string MSG_LOCK_PERMISSIONS  = "You can't change root and yours permissions!\n";
+string MSG_LOCK_KILL         = "You can't kill root and yourself!\n";
+string MSG_KILL_FAILED       = "This user is offline or not exists!\n";
 
 struct clientDescriptor{
     SOCKET sock;
     HANDLE handle;
     char *ip;
     int port;
+    string login;
 };
 
 struct userData{
@@ -122,6 +125,11 @@ DWORD WINAPI clientProcess(void* socket){
                 if(cmd == "login"){
                     if(loginCommand(login, password) == 0){
                         logInd = getUserIndex(login);
+
+                        WaitForSingleObject(hMutex,INFINITE);
+                        clientDesc[ind].login = login;
+                        ReleaseMutex(hMutex);
+
                         state = WORK;
                     }
                     else if(loginCommand(login, password) == 1){
@@ -137,7 +145,12 @@ DWORD WINAPI clientProcess(void* socket){
                 if(cmd == "addusr"){
                     if(addusrCommand(login, password) == 0){
                         logInd = getUserIndex(login);
+
+                        WaitForSingleObject(hMutex,INFINITE);
+                        clientDesc[ind].login = login;
                         users[logInd].online = true;
+                        ReleaseMutex(hMutex);
+
                         state = WORK;
                     }
                     else if(addusrCommand(login, password) == 1){
@@ -166,7 +179,7 @@ DWORD WINAPI clientProcess(void* socket){
                     if(recvS(clientDesc[ind].sock, buffer, cmd) != 1){
                         exitFlag = true;
                         break;
-                    }else cout << clientDesc[ind].ip << ":" << clientDesc[ind].port << " " << cmd << endl;
+                    }else cout << clientDesc[ind].ip << ":" << clientDesc[ind].port << "|" << clientDesc[ind].login << "| " << cmd << endl;
 
                     if(cmd == "ls"){
                         names = lsCommand(users[logInd].path);
@@ -209,11 +222,30 @@ DWORD WINAPI clientProcess(void* socket){
 
                             pos = cmd.find(" ");
                             string login = cmd.substr(0, pos);
-                            if(login == "root" || login == users[logInd].login)
+
+                            if(login == "root" || login == users[logInd].login){
                                 sendMSG(clientDesc[ind].sock, MSG_LOCK_PERMISSIONS);
+                                continue;
+                            }
 
                             if(chmodCommand(cmd) == 0) rewriteUserFile();
                             else sendMSG(clientDesc[ind].sock, MSG_USER_NOT_EXISTS);
+                        }else sendMSG(clientDesc[ind].sock, MSG_NO_PERMISSIONS);
+                    }
+
+                    else if(cmd.find("kill ") != string::npos){
+                        if(users[logInd].permissions.find("k") != string::npos){
+                            cmd = cmd.substr(4, string::npos);
+                            if(cmd.find_first_not_of(" ") != string::npos)
+                                cmd = cmd.substr(cmd.find_first_not_of(" "), string::npos);
+                            cmd = cmd.substr(0, cmd.find_last_not_of(" ") + 1);
+
+                            if(cmd == "root" || cmd == users[logInd].login){
+                                sendMSG(clientDesc[ind].sock, MSG_LOCK_KILL);
+                                continue;
+                            }
+
+                            if(killCommand(cmd) != 0) sendMSG(clientDesc[ind].sock, MSG_KILL_FAILED);
                         }else sendMSG(clientDesc[ind].sock, MSG_NO_PERMISSIONS);
                     }
 
@@ -222,7 +254,11 @@ DWORD WINAPI clientProcess(void* socket){
                     }
                 }
 
+                WaitForSingleObject(hMutex,INFINITE);
                 users[logInd].online = false;
+                clientDesc[ind].login = "";
+                ReleaseMutex(hMutex);
+
                 state = CONNECT;
 
                 break;
@@ -253,7 +289,7 @@ DWORD WINAPI serverProcess(){
             int lineCount = 0;
             for(int i = 0; i < maxThreads; i++){
                 if(clientDesc[i].sock != INVALID_SOCKET){
-                    cout << i << "|" << clientDesc[i].ip << ":" << clientDesc[i].port << endl;
+                    cout << i << "|" << clientDesc[i].ip << ":" << clientDesc[i].port << "|" << clientDesc[i].login << endl;
                     lineCount++;
                 }
             }
@@ -397,10 +433,12 @@ int main(int argc, char *argv[]){
     if(readUserFile() == 1){
         cout << "ERROR: Can't open users.txt, creating new file with root:admin user" << endl;
 
+        WaitForSingleObject(hMutex, INFINITE);
         ofstream ofs;
         ofs.open("users.txt");
         ofs << "root||admin||" << allPermissions << "||" << getServerPath() << endl;
         ofs.close();
+        ReleaseMutex(hMutex);
 
         if(readUserFile() == 1){
             cout << "ERROR: Can't open users.txt" << endl;
@@ -474,6 +512,7 @@ string getServerPath(){
 }
 
 int rewriteUserFile(){
+    WaitForSingleObject(hMutex, INFINITE);
     ofstream ofs;
     string filePath = getServerPath() + "/users.txt";
 
@@ -484,9 +523,16 @@ int rewriteUserFile(){
             ofs << users[i].login << "||" << users[i].password << "||"
                 << users[i].permissions << "||" << users[i].path << endl;
         }
-        return 0;
-    }else return 1;
+    }else{
+        ReleaseMutex(hMutex);
+
+        return 1;
+    }
+
     ofs.close();
+    ReleaseMutex(hMutex);
+
+    return 0;
 }
 
 vector<string> lsCommand(string folder){
@@ -546,12 +592,14 @@ string cdCommand(SOCKET sock, string dir, string path){
 int getUserIndex(string login){
     int ind = -1;
 
+    WaitForSingleObject(hMutex, INFINITE);
     for(int i = 0; i < users.size(); i++){
         if(users[i].login == login){
             ind = i;
             break;
         }
     }
+    ReleaseMutex(hMutex);
 
     return ind;
 }
@@ -561,6 +609,7 @@ int readUserFile(){
     string line;
     string filePath = getServerPath() + "/users.txt";
 
+    WaitForSingleObject(hMutex, INFINITE);
     ifs.open(filePath.data());
 
     if(ifs.is_open()){
@@ -585,16 +634,20 @@ int readUserFile(){
 
             users.insert(users.end(), ud);
         }
-
-        ifs.close();
-
-        return 0;
     }else{
+        ReleaseMutex(hMutex);
+
         return 1;
     }
+
+    ifs.close();
+    ReleaseMutex(hMutex);
+
+    return 0;
 }
 
 int addusrCommand(string login, string password){
+    WaitForSingleObject(hMutex, INFINITE);
     ofstream ofs;
     int ind = getUserIndex(login);
     string filePath = getServerPath() + "/users.txt";
@@ -609,8 +662,14 @@ int addusrCommand(string login, string password){
 
     if(ofs.is_open()){
         ofs << login << "||" << password << "||||" << getServerPath() << endl;
-    }else return 2;
+    }else{
+        ReleaseMutex(hMutex);
+
+        return 2;
+    }
+
     ofs.close();
+    ReleaseMutex(hMutex);
 
     userData ud;
 
@@ -620,7 +679,9 @@ int addusrCommand(string login, string password){
     ud.path        = getServerPath();
     ud.online      = false;
 
+    WaitForSingleObject(hMutex, INFINITE);
     users.insert(users.end(), ud);
+    ReleaseMutex(hMutex);
     
     return 0;
 }
@@ -649,8 +710,36 @@ int chmodCommand(string opt){
 
     int ind = getUserIndex(login);
 
-    if(ind >=0) users[ind].permissions = permissions;
-    else return 1;
+    if(ind >=0){
+        WaitForSingleObject(hMutex, INFINITE);
+        users[ind].permissions = permissions;
+        ReleaseMutex(hMutex);
+    }else return 1;
+
+    return 0;
+}
+
+int killCommand(string login){
+    int ind = -1;
+
+    WaitForSingleObject(hMutex,INFINITE);
+    for(int i = 0; i < maxThreads; i++){
+        if(clientDesc[i].login == login){
+            ind = i;
+            break;
+        }
+    }
+
+    if(ind >= 0){
+        users[getUserIndex(login)].online = false;
+        clientDesc[ind].login = "";
+        ReleaseMutex(hMutex);
+
+        closeSocket(ind);
+    }else{
+        ReleaseMutex(hMutex);
+        return 1;
+    }
 
     return 0;
 }
@@ -661,7 +750,9 @@ int loginCommand(string login, string password){
     if(ind >= 0){
         if(users[ind].online == true) return 2;
         if(users[ind].password == password){
+            WaitForSingleObject(hMutex, INFINITE);
             users[ind].online = true;
+            ReleaseMutex(hMutex);
         }else return 1;
     }else return 1;
 

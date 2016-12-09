@@ -45,6 +45,7 @@ int addusrCommand(string login, string password);
 int rmusrCommand(string login);
 int loginCommand(string login, string password);
 int chmodCommand(string opt);
+int killCommand(string login);
 string getServerPath();
 string cdCommand(SOCKET sock, string dir, string path);
 vector<string> lsCommand(string folder);
