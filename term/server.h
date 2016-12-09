@@ -20,6 +20,10 @@
 
 using namespace std;
 
+/***************
+SERVER FUNCTIONS
+***************/
+
 int main(int argc, char *argv[]);
 int recvS(SOCKET socket, char *buf, string &line);
 int sendMSG(SOCKET socket, string buffer);
@@ -28,6 +32,10 @@ DWORD WINAPI serverProcess();
 DWORD WINAPI acceptConnections(void *listenSocket);
 void startWSA();
 void closeSocket(int ind);
+
+/*****************
+TERMINAL FUNCTIONS
+*****************/
 
 int terminal();
 int rewriteUserFile();

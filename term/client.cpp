@@ -107,6 +107,7 @@ int main(int argc, char *argv[]){
         }
     }
 
+    // t1.join();
     t1.detach();
     close(sock);
 

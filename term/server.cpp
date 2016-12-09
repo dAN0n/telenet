@@ -1,14 +1,14 @@
 #include "server.h"
 
-string welcomeMsg  = "Login or register new user (login/addusr LOGIN PASSWORD)\n";
-string fullMsg     = "\nServer is full, connect later o/\n";
-string notMatchMsg     = "Login/password not match!\n";
-string matchingMsg     = "Matching login/password are not allowed!\n";
-string existsMsg     = "This user already exists!\n";
-string onlineMsg     = "This user already online!\n";
-string notExistsMsg     = "This user doesn't exists!\n";
-string permissionsMsg     = "You doesn't have permissions for this command!\n";
-string cantChangeMsg     = "You can't change root and yours permissions!\n";
+string MSG_WELCOME           = "Login or register new user (login/addusr LOGIN PASSWORD)\n";
+string MSG_FULL              = "\nServer is full, connect later o/\n";
+string MSG_LOGPASS_NOT_MATCH = "Login/password not match!\n";
+string MSG_LOGPASS_MATCHING  = "Matching login/password are not allowed!\n";
+string MSG_USER_EXISTS       = "This user already exists!\n";
+string MSG_USER_NOT_EXISTS   = "This user doesn't exists!\n";
+string MSG_USER_ONLINE       = "This user already online!\n";
+string MSG_NO_PERMISSIONS    = "You doesn't have permissions for this command!\n";
+string MSG_LOCK_PERMISSIONS  = "You can't change root and yours permissions!\n";
 
 struct clientDescriptor{
     SOCKET sock;
@@ -36,6 +36,10 @@ const HANDLE hMutex = CreateMutex(NULL, false, NULL);
 enum state{ CONNECT, WORK };
 vector<userData> users;
 string allPermissions = "ckw";
+
+/***************
+SERVER FUNCTIONS
+***************/
 
 void closeSocket(int ind){
     WaitForSingleObject(hMutex, INFINITE);
@@ -87,17 +91,12 @@ DWORD WINAPI clientProcess(void* socket){
         switch(state){
             case CONNECT:
 
-                sendMSG(clientDesc[ind].sock, welcomeMsg);
+                sendMSG(clientDesc[ind].sock, MSG_WELCOME);
 
-                // getline(cin, line);
                 if(recvS(clientDesc[ind].sock, buffer, line) != 1){
                     exitFlag = true;
                     break;
                 }else cout << clientDesc[ind].ip << ":" << clientDesc[ind].port << " " << line << endl;
-
-                // if(line == "quit"){
-                //     return 0;
-                // }
 
                 pos = line.find(" ");
                 cmd = line.substr(0, pos);
@@ -111,8 +110,6 @@ DWORD WINAPI clientProcess(void* socket){
                     pos = line.find(" ");
                     login = line.substr(0, pos);
 
-                    // cout << login << endl;
-
                     if(line.find_first_of(" ") != string::npos)
                         line = line.substr(line.find_first_of(" "), string::npos);
                     if(line.find_first_not_of(" ") != string::npos)
@@ -120,8 +117,6 @@ DWORD WINAPI clientProcess(void* socket){
 
                     pos = line.find(" ");
                     password = line.substr(0, pos);
-
-                    // cout << login << endl;
                 }
                 
                 if(cmd == "login"){
@@ -130,13 +125,11 @@ DWORD WINAPI clientProcess(void* socket){
                         state = WORK;
                     }
                     else if(loginCommand(login, password) == 1){
-                        sendMSG(clientDesc[ind].sock, notMatchMsg);
-                        // cout << notMatchMsg;
+                        sendMSG(clientDesc[ind].sock, MSG_LOGPASS_NOT_MATCH);
                         break;
                     }
                     else{
-                        sendMSG(clientDesc[ind].sock, onlineMsg);
-                        // cout << onlineMsg;
+                        sendMSG(clientDesc[ind].sock, MSG_USER_ONLINE);
                         break;                        
                     }
                 }
@@ -148,18 +141,15 @@ DWORD WINAPI clientProcess(void* socket){
                         state = WORK;
                     }
                     else if(addusrCommand(login, password) == 1){
-                        sendMSG(clientDesc[ind].sock, existsMsg);
-                        // cout << existsMsg;
+                        sendMSG(clientDesc[ind].sock, MSG_USER_EXISTS);
                         break;
                     }
                     else if(addusrCommand(login, password) == 2){
                         cout << "ERROR: Can't open users.txt" << endl;
                         return 2;
-                        // break;
                     }
                     else{
-                        sendMSG(clientDesc[ind].sock, matchingMsg);
-                        // cout << matchingMsg;                        
+                        sendMSG(clientDesc[ind].sock, MSG_LOGPASS_MATCHING);
                     }
                 }
 
@@ -171,8 +161,6 @@ DWORD WINAPI clientProcess(void* socket){
 
                     string prompt = users[logInd].login + " @ " + users[logInd].path + " $ \n";
                     sendMSG(clientDesc[ind].sock, prompt);
-                    // cout << users[logInd].login << " @ " << users[logInd].path << " $ ";
-                    // getline(cin, cmd);
                     
                     cmd = "";
                     if(recvS(clientDesc[ind].sock, buffer, cmd) != 1){
@@ -183,10 +171,7 @@ DWORD WINAPI clientProcess(void* socket){
                     if(cmd == "ls"){
                         names = lsCommand(users[logInd].path);
                         for(int i = 0; i < names.size(); i++)
-                            // temp = names[i] + "\n";
-                            // cout << temp;
                             sendMSG(clientDesc[ind].sock, names[i] + "\n");
-                            // cout << names[i] << endl;
                         names.clear();
                     }
 
@@ -202,7 +187,6 @@ DWORD WINAPI clientProcess(void* socket){
 
                     else if(cmd == "pwd"){
                         sendMSG(clientDesc[ind].sock, users[logInd].path + "\n");
-                        // cout << users[logInd].path << endl;
                     }
 
                     else if(cmd == "who"){
@@ -210,11 +194,10 @@ DWORD WINAPI clientProcess(void* socket){
                             for(int i = 0; i < users.size(); i++){
                                 string online, send;
                                 if(users[i].online) online = "ONLINE";
-                                // cout << users[i].login << "\t" << online << "\t" << users[i].path << endl;
                                 send = users[i].login + "\t" + online + "\t" + users[i].path + "\n";
                                 sendMSG(clientDesc[ind].sock, send);
                             }
-                        }else sendMSG(clientDesc[ind].sock, permissionsMsg);
+                        }else sendMSG(clientDesc[ind].sock, MSG_NO_PERMISSIONS);
                     }
 
                     else if(cmd.find("chmod ") != string::npos){
@@ -227,19 +210,19 @@ DWORD WINAPI clientProcess(void* socket){
                             pos = cmd.find(" ");
                             string login = cmd.substr(0, pos);
                             if(login == "root" || login == users[logInd].login)
-                                sendMSG(clientDesc[ind].sock, cantChangeMsg);
+                                sendMSG(clientDesc[ind].sock, MSG_LOCK_PERMISSIONS);
 
                             if(chmodCommand(cmd) == 0) rewriteUserFile();
-                            else sendMSG(clientDesc[ind].sock, notExistsMsg);
-                        }else sendMSG(clientDesc[ind].sock, permissionsMsg);
+                            else sendMSG(clientDesc[ind].sock, MSG_USER_NOT_EXISTS);
+                        }else sendMSG(clientDesc[ind].sock, MSG_NO_PERMISSIONS);
                     }
 
                     else if(cmd == "logout"){
-                        users[logInd].online = false;
                         break;
                     }
                 }
 
+                users[logInd].online = false;
                 state = CONNECT;
 
                 break;
@@ -314,7 +297,7 @@ DWORD WINAPI acceptConnections(void *listenSocket){
         if(ind < 0){
             char *ip  = inet_ntoa(clientInfo.sin_addr);
 
-            sendMSG(acceptSocket, fullMsg);
+            sendMSG(acceptSocket, MSG_FULL);
             shutdown(acceptSocket, SD_BOTH);
             closesocket(acceptSocket);
 
@@ -464,7 +447,9 @@ int main(int argc, char *argv[]){
     return 0;
 }
 
-
+/*****************
+TERMINAL FUNCTIONS
+*****************/
 
 bool compareDir(string i, string j){
     bool iDir = false;
@@ -547,7 +532,6 @@ string cdCommand(SOCKET sock, string dir, string path){
             else{
                 string msg = "Directory \"" + subdir + "\" is not exist\n";
                 sendMSG(sock, msg);
-                // cout << "Directory \"" << subdir << "\" is not exist" << endl;
                 names.clear();
                 break;
             }
@@ -605,13 +589,7 @@ int readUserFile(){
         ifs.close();
 
         return 0;
-
-        // cout << "File open" << endl;
-        // for(int i = 0; i < users.size(); i++){
-            // cout << users[i].login << " " << users[i].password << " " << users[i].permissions << " " << users[i].path << " " << users[i].online << endl;
-        // }
     }else{
-        // cout << "Error. Can not open users.txt" << endl;
         return 1;
     }
 }
@@ -622,7 +600,6 @@ int addusrCommand(string login, string password){
     string filePath = getServerPath() + "/users.txt";
 
     if(ind >= 0){
-        // cout << "This user already exists!" << endl << endl;
         return 1;
     }
 
@@ -632,7 +609,6 @@ int addusrCommand(string login, string password){
 
     if(ofs.is_open()){
         ofs << login << "||" << password << "||||" << getServerPath() << endl;
-    //     cout << "User " << login << " was created" << endl;
     }else return 2;
     ofs.close();
 
