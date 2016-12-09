@@ -2,12 +2,27 @@
 
 string welcomeMsg  = "Login or register new user (login/addusr LOGIN PASSWORD)\n";
 string fullMsg     = "\nServer is full, connect later o/\n";
+string notMatchMsg     = "Login/password not match!\n";
+string matchingMsg     = "Matching login/password are not allowed!\n";
+string existsMsg     = "This user already exists!\n";
+string onlineMsg     = "This user already online!\n";
+string notExistsMsg     = "This user doesn't exists!\n";
+string permissionsMsg     = "You doesn't have permissions for this command!\n";
+string cantChangeMsg     = "You can't change root and yours permissions!\n";
 
 struct clientDescriptor{
     SOCKET sock;
     HANDLE handle;
     char *ip;
     int port;
+};
+
+struct userData{
+    string login;
+    string password;
+    string permissions;
+    string path;
+    bool online;
 };
 
 int maxThreads;
@@ -17,6 +32,11 @@ int packetSize;
 clientDescriptor clientDesc[MAX_THREADS_POSSIBLE];
 SOCKET listenSocket = INVALID_SOCKET;
 const HANDLE hMutex = CreateMutex(NULL, false, NULL);
+
+enum state{ CONNECT, WORK };
+vector<userData> users;
+string allPermissions = "ckw";
+// string allPermissions = "ckrw";
 
 void closeSocket(int ind){
     WaitForSingleObject(hMutex, INFINITE);
@@ -49,24 +69,220 @@ int sendMSG(SOCKET socket, string buffer){
 DWORD WINAPI clientProcess(void* socket){
     int ind;
     int rc = 1;
+    bool exitFlag = false;
+    state state = CONNECT;
+    char buffer[packetSize];
+    string line;
 
     for (int i = 0; i < maxThreads; i++){
         if (clientDesc[i].sock == (SOCKET)socket) ind = i;
     }
 
-    sendMSG(clientDesc[ind].sock, welcomeMsg);
+    // string line;
 
-    char buffer[packetSize];
-    string line;
+    // while(rc != 0){
+    //     line = "";
+    //     rc = recvS(clientDesc[ind].sock, buffer, line);
 
-    while(rc != 0){
+    //     if(rc != 0){
+    //         cout << clientDesc[ind].ip << ":" << clientDesc[ind].port << " " << line << endl;
+    //     }
+    // }
+
+    while(!exitFlag){
+        string login;
+        string password;
+        string cmd;
+        int logInd;
+        size_t pos = 0;
         line = "";
-        rc = recvS(clientDesc[ind].sock, buffer, line);
 
-        if(rc != 0){
-            cout << clientDesc[ind].ip << ":" << clientDesc[ind].port << " " << line << endl;
+        switch(state){
+            case CONNECT:
+
+                sendMSG(clientDesc[ind].sock, welcomeMsg);
+
+                // getline(cin, line);
+                if(recvS(clientDesc[ind].sock, buffer, line) != 1){
+                    exitFlag = true;
+                    break;
+                }else cout << clientDesc[ind].ip << ":" << clientDesc[ind].port << " " << line << endl;
+
+                // if(line == "quit"){
+                //     return 0;
+                // }
+
+                pos = line.find(" ");
+                cmd = line.substr(0, pos);
+
+                if(cmd == "login" || cmd == "addusr"){
+                    if(line.find_first_of(" ") != string::npos)
+                        line = line.substr(line.find_first_of(" "), string::npos);
+                    if(line.find_first_not_of(" ") != string::npos)
+                        line = line.substr(line.find_first_not_of(" "), string::npos);
+                    
+                    pos = line.find(" ");
+                    login = line.substr(0, pos);
+
+                    // cout << login << endl;
+
+                    if(line.find_first_of(" ") != string::npos)
+                        line = line.substr(line.find_first_of(" "), string::npos);
+                    if(line.find_first_not_of(" ") != string::npos)
+                        line = line.substr(line.find_first_not_of(" "), string::npos);
+
+                    pos = line.find(" ");
+                    password = line.substr(0, pos);
+
+                    // cout << login << endl;
+                }
+                
+                if(cmd == "login"){
+                    if(loginCommand(login, password) == 0){
+                        logInd = getUserIndex(login);
+                        state = WORK;
+                    }
+                    else if(loginCommand(login, password) == 1){
+                        sendMSG(clientDesc[ind].sock, notMatchMsg);
+                        // cout << notMatchMsg;
+                        break;
+                    }
+                    else{
+                        sendMSG(clientDesc[ind].sock, onlineMsg);
+                        // cout << onlineMsg;
+                        break;                        
+                    }
+                }
+
+                if(cmd == "addusr"){
+                    if(addusrCommand(login, password) == 0){
+                        logInd = getUserIndex(login);
+                        users[logInd].online = true;
+                        state = WORK;
+                    }
+                    else if(addusrCommand(login, password) == 1){
+                        sendMSG(clientDesc[ind].sock, existsMsg);
+                        // cout << existsMsg;
+                        break;
+                    }
+                    else if(addusrCommand(login, password) == 2){
+                        cout << "ERROR: Can't open users.txt" << endl;
+                        return 2;
+                        // break;
+                    }
+                    else{
+                        sendMSG(clientDesc[ind].sock, matchingMsg);
+                        // cout << matchingMsg;                        
+                    }
+                }
+
+                break;
+            case WORK:
+                while(true){
+                    string cmd;
+                    vector<string> names;
+
+                    string prompt = users[logInd].login + " @ " + users[logInd].path + " $ \n";
+                    sendMSG(clientDesc[ind].sock, prompt);
+                    // cout << users[logInd].login << " @ " << users[logInd].path << " $ ";
+                    // getline(cin, cmd);
+                    
+                    cmd = "";
+                    if(recvS(clientDesc[ind].sock, buffer, cmd) != 1){
+                        exitFlag = true;
+                        break;
+                    }else cout << clientDesc[ind].ip << ":" << clientDesc[ind].port << " " << cmd << endl;
+
+                    if(cmd == "ls"){
+                        names = lsCommand(users[logInd].path);
+                        for(int i = 0; i < names.size(); i++)
+                            // temp = names[i] + "\n";
+                            // cout << temp;
+                            sendMSG(clientDesc[ind].sock, names[i] + "\n");
+                            // cout << names[i] << endl;
+                        names.clear();
+                    }
+
+                    else if(cmd.find("cd ") != string::npos){
+                        cmd = cmd.substr(2, string::npos);
+                        if(cmd.find_first_not_of(" ") != string::npos)
+                            cmd = cmd.substr(cmd.find_first_not_of(" "), string::npos);
+                        cmd = cmd.substr(0, cmd.find_last_not_of(" ") + 1);
+
+                        users[logInd].path = cdCommand(clientDesc[ind].sock, cmd, users[logInd].path);
+                        rewriteUserFile();
+                    }
+
+                    else if(cmd == "pwd"){
+                        sendMSG(clientDesc[ind].sock, users[logInd].path + "\n");
+                        // cout << users[logInd].path << endl;
+                    }
+
+                    else if(cmd == "who"){
+                        if(users[logInd].permissions.find("w") != string::npos){
+                            for(int i = 0; i < users.size(); i++){
+                                string online, send;
+                                if(users[i].online) online = "ONLINE";
+                                // cout << users[i].login << "\t" << online << "\t" << users[i].path << endl;
+                                send = users[i].login + "\t" + online + "\t" + users[i].path + "\n";
+                                sendMSG(clientDesc[ind].sock, send);
+                            }
+                        }else sendMSG(clientDesc[ind].sock, permissionsMsg);
+                    }
+
+                    else if(cmd.find("chmod ") != string::npos){
+                        if(users[logInd].permissions.find("c") != string::npos){
+                            cmd = cmd.substr(5, string::npos);
+                            if(cmd.find_first_not_of(" ") != string::npos)
+                                cmd = cmd.substr(cmd.find_first_not_of(" "), string::npos);
+                            cmd = cmd.substr(0, cmd.find_last_not_of(" ") + 1);
+
+                            pos = cmd.find(" ");
+                            string login = cmd.substr(0, pos);
+                            if(login == "root" || login == users[logInd].login)
+                                sendMSG(clientDesc[ind].sock, cantChangeMsg);
+
+                            if(chmodCommand(cmd) == 0) rewriteUserFile();
+                            else sendMSG(clientDesc[ind].sock, notExistsMsg);
+                        }else sendMSG(clientDesc[ind].sock, permissionsMsg);
+                    }
+
+                    // // TODO: Учесть, что юзер может быть залогинен (предварительно дискон)
+                    // else if(cmd.find("rmusr ") != string::npos){
+                    //     if(users[logInd].permissions.find("r") != string::npos){
+                    //         cmd = cmd.substr(5, string::npos);
+                    //         if(cmd.find_first_not_of(" ") != string::npos)
+                    //             cmd = cmd.substr(cmd.find_first_not_of(" "), string::npos);
+                    //         cmd = cmd.substr(0, cmd.find_last_not_of(" ") + 1);
+
+                    //         if(cmd == users[logInd].login)
+                    //             cout << "You can't remove yourself!" << endl;
+                    //         else if(cmd == "root")
+                    //             cout << "You can't remove root user!" << endl;
+                    //         // как-то выйти
+
+                    //         if(rmusrCommand(cmd) == 0) rewriteUserFile();
+                    //         else cout << "This user doesn't exists!" << endl;
+                    //     }else cout << "You doesn't have permissions for this command!" << endl;
+                    // }
+
+                    // else if(cmd == "quit" || cmd == "exit"){
+                    //     users[logInd].online = false;
+                    //     return 0;
+                    // }
+
+                    else if(cmd == "logout"){
+                        users[logInd].online = false;
+                        break;
+                    }
+                }
+
+                state = CONNECT;
+
+                break;
+            default:
+                break;
         }
-
     }
 
     closeSocket(ind);
@@ -180,6 +396,10 @@ void startWSA(){
 
 int main(int argc, char *argv[]){
 
+    setlocale(LC_ALL, "Russian");
+    SetConsoleCP(1251);
+    SetConsoleOutputCP(1251);
+
     if(argc > 1){
         for(int i = 1; i < argc; i++){
             string opt = string(argv[i]);
@@ -228,6 +448,19 @@ int main(int argc, char *argv[]){
     cout << "Buffer:  " << packetSize << endl;
     cout << endl;
 
+    if(readUserFile() == 1){
+        cout << "ERROR: Can't open users.txt, creating new file with root:admin user" << endl;
+
+        ofstream ofs;
+        ofs.open("users.txt");
+        ofs << "root||admin||" << allPermissions << "||" << getServerPath() << endl;
+        ofs.close();
+
+        if(readUserFile() == 1){
+            cout << "ERROR: Can't open users.txt" << endl;
+        }
+    }
+
     startWSA();
 
     WaitForSingleObject(hMutex, INFINITE);
@@ -266,4 +499,415 @@ int main(int argc, char *argv[]){
 
     WSACleanup();
     return 0;
+}
+
+
+
+bool compareDir(string i, string j){
+    bool iDir, jDir = false;
+
+    if(i.find("/") != string::npos) iDir = true;
+    if(j.find("/") != string::npos) jDir = true;
+
+    if(iDir && !jDir) return 1;
+    if(!iDir && jDir) return 0;
+    else{
+        if(i<j) return 1;
+        else return 0;
+    }
+}
+
+string getServerPath(){
+    char buffer[MAX_PATH];
+    GetModuleFileName(NULL, buffer, MAX_PATH);
+    string::size_type pos = string(buffer).find_last_of("\\/");
+    return string(buffer).substr(0, pos);
+}
+
+int rewriteUserFile(){
+    ofstream ofs;
+    string filePath = getServerPath() + "/users.txt";
+
+    ofs.open(filePath.data());
+
+    if(ofs.is_open()){
+        for(int i = 0; i < users.size(); i++){
+            ofs << users[i].login << "||" << users[i].password << "||"
+                << users[i].permissions << "||" << users[i].path << endl;
+        }
+        return 0;
+    }else return 1;
+    ofs.close();
+}
+
+vector<string> lsCommand(string folder){
+    vector<string> names;
+    string search_path = folder + "/*.*";
+    WIN32_FIND_DATA fd; 
+    HANDLE hFind = FindFirstFile(search_path.c_str(), &fd); 
+    if(hFind != INVALID_HANDLE_VALUE){ 
+        do{
+            if(!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)){
+                names.push_back(fd.cFileName);
+            }
+            else{
+                string dir = fd.cFileName;
+                if(!(dir == "." || dir == "..")){
+                    dir += "/";
+                    names.push_back(dir);
+                }
+            }
+        }while(FindNextFile(hFind, &fd)); 
+        FindClose(hFind);
+
+        sort(names.begin(), names.end(), compareDir);
+    } 
+    return names;
+}
+
+string cdCommand(SOCKET sock, string dir, string path){
+    vector<string> names;
+    string subdir;
+
+    size_t pos = dir.find_last_of("/");
+    if(pos != dir.size() - 1) dir += "/";
+    pos = 0;
+    
+    while((pos = dir.find("/")) != string::npos){
+        subdir = dir.substr(0, pos);
+        if(subdir == "..") path = path.substr(0, path.find_last_of("\\/"));
+        else{
+            names = lsCommand(path);
+            if(find(names.begin(), names.end(), subdir + "/") != names.end())
+                path += "/" + subdir;
+            else{
+                string msg = "Directory \"" + subdir + "\" is not exist\n";
+                sendMSG(sock, msg);
+                // cout << "Directory \"" << subdir << "\" is not exist" << endl;
+                names.clear();
+                break;
+            }
+            names.clear();
+        }
+        dir.erase(0, pos + 1);
+    }
+
+    return path;
+}
+
+int getUserIndex(string login){
+    int ind = -1;
+
+    for(int i = 0; i < users.size(); i++){
+        if(users[i].login == login){
+            ind = i;
+            break;
+        }
+    }
+
+    return ind;
+}
+
+int readUserFile(){
+    ifstream ifs;
+    string line;
+    string filePath = getServerPath() + "/users.txt";
+
+    ifs.open(filePath.data());
+
+    if(ifs.is_open()){
+        while(getline(ifs, line)){
+            size_t pos = 0;
+            string subline;
+            vector<string> tempStrings;
+            userData ud;
+
+            while((pos = line.find("||")) != string::npos){
+                subline = line.substr(0, pos);
+                tempStrings.push_back(subline);
+                line.erase(0, pos + 2);
+            }
+            tempStrings.push_back(line);
+
+            ud.login       = tempStrings[0];
+            ud.password    = tempStrings[1];
+            ud.permissions = tempStrings[2];
+            ud.path        = tempStrings[3];
+            ud.online      = false;
+
+            users.insert(users.end(), ud);
+        }
+
+        ifs.close();
+
+        return 0;
+
+        // cout << "File open" << endl;
+        // for(int i = 0; i < users.size(); i++){
+            // cout << users[i].login << " " << users[i].password << " " << users[i].permissions << " " << users[i].path << " " << users[i].online << endl;
+        // }
+    }else{
+        // cout << "Error. Can not open users.txt" << endl;
+        return 1;
+    }
+}
+
+int addusrCommand(string login, string password){
+    ofstream ofs;
+    int ind = getUserIndex(login);
+    string filePath = getServerPath() + "/users.txt";
+
+    if(ind >= 0){
+        // cout << "This user already exists!" << endl << endl;
+        return 1;
+    }
+
+    if(login == password) return 3;
+
+    ofs.open(filePath.data(), ofstream::app);
+
+    if(ofs.is_open()){
+        ofs << login << "||" << password << "||||" << getServerPath() << endl;
+    //     cout << "User " << login << " was created" << endl;
+    }else return 2;
+    ofs.close();
+
+    userData ud;
+
+    ud.login       = login;
+    ud.password    = password;
+    ud.permissions = "";
+    ud.path        = getServerPath();
+    ud.online      = false;
+
+    users.insert(users.end(), ud);
+    
+    return 0;
+}
+
+int rmusrCommand(string login){
+    int ind = getUserIndex(login);
+
+    if(ind >= 0){
+        users.erase(users.begin() + ind);
+        return 0;
+    }else return 1;
+}
+
+int chmodCommand(string opt){
+    string login;
+    string permissions;
+    size_t pos = 0;
+    
+    pos = opt.find(" ");
+    login = opt.substr(0, pos);
+
+    if(opt.find_first_of(" ") != string::npos)
+        opt = opt.substr(opt.find_first_of(" "), string::npos);
+    if(opt.find_first_not_of(" ") != string::npos)
+        opt = opt.substr(opt.find_first_not_of(" "), string::npos);
+
+    pos = opt.find(" ");
+    opt = opt.substr(0, pos);
+
+    for(int i = 0; i < opt.size(); i++){
+        if(allPermissions.find(opt[i]) != string::npos)
+            if(permissions.find(opt[i]) == string::npos)
+                permissions += opt[i];
+    }
+
+    int ind = getUserIndex(login);
+
+    if(ind >=0) users[ind].permissions = permissions;
+    else return 1;
+
+    return 0;
+}
+
+int loginCommand(string login, string password){
+    int ind = getUserIndex(login);
+
+    if(ind >= 0){
+        if(users[ind].online == true) return 2;
+        if(users[ind].password == password){
+            users[ind].online = true;
+        }else return 1;
+    }else return 1;
+
+    return 0;
+}
+
+
+int terminal(){
+    // setlocale(LC_ALL, "Russian");
+    // SetConsoleCP(1251);
+    // SetConsoleOutputCP(1251);
+
+    // bool exitFlag = false;
+    // state state = CONNECT;
+    // string line;
+
+    // while(!exitFlag){
+    //     string login;
+    //     string password;
+    //     string cmd;
+    //     int logInd;
+    //     size_t pos = 0;
+
+    //     switch(state){
+    //         case CONNECT:
+
+    //             getline(cin, line);
+
+    //             if(line == "quit"){
+    //                 return 0;
+    //             }
+
+    //             pos = line.find(" ");
+    //             cmd = line.substr(0, pos);
+
+    //             if(cmd == "login" || cmd == "addusr"){
+    //                 if(line.find_first_of(" ") != string::npos)
+    //                     line = line.substr(line.find_first_of(" "), string::npos);
+    //                 if(line.find_first_not_of(" ") != string::npos)
+    //                     line = line.substr(line.find_first_not_of(" "), string::npos);
+                    
+    //                 pos = line.find(" ");
+    //                 login = line.substr(0, pos);
+
+    //                 if(line.find_first_of(" ") != string::npos)
+    //                     line = line.substr(line.find_first_of(" "), string::npos);
+    //                 if(line.find_first_not_of(" ") != string::npos)
+    //                     line = line.substr(line.find_first_not_of(" "), string::npos);
+
+    //                 pos = line.find(" ");
+    //                 password = line.substr(0, pos);
+    //             }
+                
+    //             if(cmd == "login"){
+    //                 if(loginCommand(login, password) == 0){
+    //                     logInd = getUserIndex(login);
+    //                     state = WORK;
+    //                 }
+    //                 else{
+    //                     cout << "User/password not match!" << endl;
+    //                     break;
+    //                 }
+    //             }
+
+    //             if(cmd == "addusr"){
+    //                 if(addusrCommand(login, password) == 0){
+    //                     logInd = getUserIndex(login);
+    //                     users[logInd].online = true;
+    //                     state = WORK;
+    //                 }
+    //                 else if(addusrCommand(login, password) == 1){
+    //                     cout << "This user already exists!" << endl;
+    //                     break;
+    //                 }
+    //                 else if(addusrCommand(login, password) == 2){
+    //                     cout << "ERROR: Can't open users.txt" << endl;
+    //                     return 2;
+    //                     // break;
+    //                 }
+    //             }
+
+    //             break;
+    //         case WORK:
+    //             while(true){
+    //                 string cmd;
+    //                 vector<string> names;
+
+    //                 cout << users[logInd].login << " @ " << users[logInd].path << " $ ";
+    //                 getline(cin, cmd);
+
+    //                 if(cmd == "ls"){
+    //                     names = lsCommand(users[logInd].path);
+    //                     for(int i = 0; i < names.size(); i++)
+    //                         cout << names[i] << endl;
+    //                     names.clear();
+    //                 }
+
+    //                 else if(cmd.find("cd ") != string::npos){
+    //                     cmd = cmd.substr(2, string::npos);
+    //                     if(cmd.find_first_not_of(" ") != string::npos)
+    //                         cmd = cmd.substr(cmd.find_first_not_of(" "), string::npos);
+    //                     cmd = cmd.substr(0, cmd.find_last_not_of(" ") + 1);
+
+    //                     users[logInd].path = cdCommand(cmd, users[logInd].path);
+    //                     rewriteUserFile();
+    //                 }
+
+    //                 else if(cmd == "pwd") cout << users[logInd].path << endl;
+
+    //                 else if(cmd == "who"){
+    //                     if(users[logInd].permissions.find("w") != string::npos){
+    //                         for(int i = 0; i < users.size(); i++){
+    //                             string online;
+    //                             if(users[i].online) online = "ONLINE";
+    //                             cout << users[i].login << "\t" << online << "\t" << users[i].path << endl;
+    //                         }
+    //                     }else cout << "You doesn't have permissions for this command!" << endl;
+    //                 }
+
+    //                 else if(cmd.find("chmod ") != string::npos){
+    //                     if(users[logInd].permissions.find("c") != string::npos){
+    //                         cmd = cmd.substr(5, string::npos);
+    //                         if(cmd.find_first_not_of(" ") != string::npos)
+    //                             cmd = cmd.substr(cmd.find_first_not_of(" "), string::npos);
+    //                         cmd = cmd.substr(0, cmd.find_last_not_of(" ") + 1);
+
+    //                         if(chmodCommand(cmd) == 0) rewriteUserFile();
+    //                         else cout << "You can't change root permissions!" << endl;
+    //                     }else cout << "You doesn't have permissions for this command!" << endl;
+    //                 }
+
+    //                 // // TODO: Учесть, что юзер может быть залогинен (предварительно дискон)
+    //                 // else if(cmd.find("rmusr ") != string::npos){
+    //                 //     if(users[logInd].permissions.find("r") != string::npos){
+    //                 //         cmd = cmd.substr(5, string::npos);
+    //                 //         if(cmd.find_first_not_of(" ") != string::npos)
+    //                 //             cmd = cmd.substr(cmd.find_first_not_of(" "), string::npos);
+    //                 //         cmd = cmd.substr(0, cmd.find_last_not_of(" ") + 1);
+
+    //                 //         if(cmd == users[logInd].login)
+    //                 //             cout << "You can't remove yourself!" << endl;
+    //                 //         else if(cmd == "root")
+    //                 //             cout << "You can't remove root user!" << endl;
+    //                 //         // как-то выйти
+
+    //                 //         if(rmusrCommand(cmd) == 0) rewriteUserFile();
+    //                 //         else cout << "This user doesn't exists!" << endl;
+    //                 //     }else cout << "You doesn't have permissions for this command!" << endl;
+    //                 // }
+
+    //                 else if(cmd == "quit" || cmd == "exit"){
+    //                     users[logInd].online = false;
+    //                     return 0;
+    //                 }
+
+    //                 else if(cmd == "logout"){
+    //                     users[logInd].online = false;
+    //                     break;
+    //                 }
+    //             }
+
+    //             state = CONNECT;
+
+    //             break;
+    //         default:
+    //             break;
+    //     }
+    // }
+
+    //     // Логин
+    //     // cout << "Login: ";
+    //     // getline(cin, login);
+
+    //     // cout << "Password: ";
+    //     // while((pw = getch()) != '\r'){
+    //     //     password += pw;
+    //     //     // cout << pw << endl;
+    //     // }
+    //     // cout << endl;
 }

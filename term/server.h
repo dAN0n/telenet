@@ -1,11 +1,15 @@
-#pragma once
+#include <windows.h>
 #include <winsock2.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <vector>
-#include <cstring>
+#include <stdio.h>
 #include <iostream>
-#include "term.h"
+#include <fstream>
+#include <vector>
+#include <string>
+#include <cstring>
+#include <algorithm>
+#include <conio.h>
+#include <clocale>
 
 #define MAX_THREADS_POSSIBLE 10
 #define MAX_THREADS_DEFAULT 2
@@ -24,3 +28,16 @@ DWORD WINAPI serverProcess();
 DWORD WINAPI acceptConnections(void *listenSocket);
 void startWSA();
 void closeSocket(int ind);
+
+int terminal();
+int rewriteUserFile();
+int getUserIndex(string login);
+int readUserFile();
+int addusrCommand(string login, string password);
+int rmusrCommand(string login);
+int loginCommand(string login, string password);
+int chmodCommand(string opt);
+string getServerPath();
+string cdCommand(SOCKET sock, string dir, string path);
+vector<string> lsCommand(string folder);
+bool compareDir(string i, string j);

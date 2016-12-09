@@ -9,18 +9,16 @@ LIN_FLAGS = -std=c++11
 SERVER_NAME = -o server.exe
 CLIENT_NAME = -o client
 
-SERVER_CPP = server.cpp term.cpp
-
 jenkins: jenkins-server jenkins-client
 
 jenkins-server: CXX = ${MINGW}
-jenkins-server: ${SERVER_CPP} server.h term.h server
+jenkins-server: server.cpp server.h server
 
 jenkins-client: CXX = ${CROSS}
 jenkins-client: client.cpp client
 
-server: ${SERVER_CPP} server.h term.h
-	${CXX} ${SERVER_NAME} ${SERVER_CPP} ${FLAGS} ${WIN_FLAGS}
+server: server.cpp server.h
+	${CXX} ${SERVER_NAME} $< ${FLAGS} ${WIN_FLAGS}
 
 client: client.cpp
 	${CXX} ${CLIENT_NAME} $< ${FLAGS} ${LIN_FLAGS}

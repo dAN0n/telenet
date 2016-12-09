@@ -1,3 +1,4 @@
 *.exe
 trivial/client
 mthr/client
+term/users.txt

@@ -95,7 +95,8 @@ int main(int argc, char *argv[]){
     while(working){
         line = "";
         if(recvServerMsg(line) == 1){
-            cout << line << endl;
+            /*if(line.find("$") == string::npos)*/ cout << line << endl;
+            // else cout << line;
             
             fullCheck = strncmp(line.data(), "\nServer is full", 15);
             if(fullCheck == 0) working = false;
