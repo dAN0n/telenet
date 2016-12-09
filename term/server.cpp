@@ -36,7 +36,6 @@ const HANDLE hMutex = CreateMutex(NULL, false, NULL);
 enum state{ CONNECT, WORK };
 vector<userData> users;
 string allPermissions = "ckw";
-// string allPermissions = "ckrw";
 
 void closeSocket(int ind){
     WaitForSingleObject(hMutex, INFINITE);
@@ -68,7 +67,6 @@ int sendMSG(SOCKET socket, string buffer){
 
 DWORD WINAPI clientProcess(void* socket){
     int ind;
-    int rc = 1;
     bool exitFlag = false;
     state state = CONNECT;
     char buffer[packetSize];
@@ -77,17 +75,6 @@ DWORD WINAPI clientProcess(void* socket){
     for (int i = 0; i < maxThreads; i++){
         if (clientDesc[i].sock == (SOCKET)socket) ind = i;
     }
-
-    // string line;
-
-    // while(rc != 0){
-    //     line = "";
-    //     rc = recvS(clientDesc[ind].sock, buffer, line);
-
-    //     if(rc != 0){
-    //         cout << clientDesc[ind].ip << ":" << clientDesc[ind].port << " " << line << endl;
-    //     }
-    // }
 
     while(!exitFlag){
         string login;
@@ -246,30 +233,6 @@ DWORD WINAPI clientProcess(void* socket){
                             else sendMSG(clientDesc[ind].sock, notExistsMsg);
                         }else sendMSG(clientDesc[ind].sock, permissionsMsg);
                     }
-
-                    // // TODO: Учесть, что юзер может быть залогинен (предварительно дискон)
-                    // else if(cmd.find("rmusr ") != string::npos){
-                    //     if(users[logInd].permissions.find("r") != string::npos){
-                    //         cmd = cmd.substr(5, string::npos);
-                    //         if(cmd.find_first_not_of(" ") != string::npos)
-                    //             cmd = cmd.substr(cmd.find_first_not_of(" "), string::npos);
-                    //         cmd = cmd.substr(0, cmd.find_last_not_of(" ") + 1);
-
-                    //         if(cmd == users[logInd].login)
-                    //             cout << "You can't remove yourself!" << endl;
-                    //         else if(cmd == "root")
-                    //             cout << "You can't remove root user!" << endl;
-                    //         // как-то выйти
-
-                    //         if(rmusrCommand(cmd) == 0) rewriteUserFile();
-                    //         else cout << "This user doesn't exists!" << endl;
-                    //     }else cout << "You doesn't have permissions for this command!" << endl;
-                    // }
-
-                    // else if(cmd == "quit" || cmd == "exit"){
-                    //     users[logInd].online = false;
-                    //     return 0;
-                    // }
 
                     else if(cmd == "logout"){
                         users[logInd].online = false;
@@ -685,15 +648,6 @@ int addusrCommand(string login, string password){
     return 0;
 }
 
-int rmusrCommand(string login){
-    int ind = getUserIndex(login);
-
-    if(ind >= 0){
-        users.erase(users.begin() + ind);
-        return 0;
-    }else return 1;
-}
-
 int chmodCommand(string opt){
     string login;
     string permissions;
@@ -735,179 +689,4 @@ int loginCommand(string login, string password){
     }else return 1;
 
     return 0;
-}
-
-
-int terminal(){
-    // setlocale(LC_ALL, "Russian");
-    // SetConsoleCP(1251);
-    // SetConsoleOutputCP(1251);
-
-    // bool exitFlag = false;
-    // state state = CONNECT;
-    // string line;
-
-    // while(!exitFlag){
-    //     string login;
-    //     string password;
-    //     string cmd;
-    //     int logInd;
-    //     size_t pos = 0;
-
-    //     switch(state){
-    //         case CONNECT:
-
-    //             getline(cin, line);
-
-    //             if(line == "quit"){
-    //                 return 0;
-    //             }
-
-    //             pos = line.find(" ");
-    //             cmd = line.substr(0, pos);
-
-    //             if(cmd == "login" || cmd == "addusr"){
-    //                 if(line.find_first_of(" ") != string::npos)
-    //                     line = line.substr(line.find_first_of(" "), string::npos);
-    //                 if(line.find_first_not_of(" ") != string::npos)
-    //                     line = line.substr(line.find_first_not_of(" "), string::npos);
-                    
-    //                 pos = line.find(" ");
-    //                 login = line.substr(0, pos);
-
-    //                 if(line.find_first_of(" ") != string::npos)
-    //                     line = line.substr(line.find_first_of(" "), string::npos);
-    //                 if(line.find_first_not_of(" ") != string::npos)
-    //                     line = line.substr(line.find_first_not_of(" "), string::npos);
-
-    //                 pos = line.find(" ");
-    //                 password = line.substr(0, pos);
-    //             }
-                
-    //             if(cmd == "login"){
-    //                 if(loginCommand(login, password) == 0){
-    //                     logInd = getUserIndex(login);
-    //                     state = WORK;
-    //                 }
-    //                 else{
-    //                     cout << "User/password not match!" << endl;
-    //                     break;
-    //                 }
-    //             }
-
-    //             if(cmd == "addusr"){
-    //                 if(addusrCommand(login, password) == 0){
-    //                     logInd = getUserIndex(login);
-    //                     users[logInd].online = true;
-    //                     state = WORK;
-    //                 }
-    //                 else if(addusrCommand(login, password) == 1){
-    //                     cout << "This user already exists!" << endl;
-    //                     break;
-    //                 }
-    //                 else if(addusrCommand(login, password) == 2){
-    //                     cout << "ERROR: Can't open users.txt" << endl;
-    //                     return 2;
-    //                     // break;
-    //                 }
-    //             }
-
-    //             break;
-    //         case WORK:
-    //             while(true){
-    //                 string cmd;
-    //                 vector<string> names;
-
-    //                 cout << users[logInd].login << " @ " << users[logInd].path << " $ ";
-    //                 getline(cin, cmd);
-
-    //                 if(cmd == "ls"){
-    //                     names = lsCommand(users[logInd].path);
-    //                     for(int i = 0; i < names.size(); i++)
-    //                         cout << names[i] << endl;
-    //                     names.clear();
-    //                 }
-
-    //                 else if(cmd.find("cd ") != string::npos){
-    //                     cmd = cmd.substr(2, string::npos);
-    //                     if(cmd.find_first_not_of(" ") != string::npos)
-    //                         cmd = cmd.substr(cmd.find_first_not_of(" "), string::npos);
-    //                     cmd = cmd.substr(0, cmd.find_last_not_of(" ") + 1);
-
-    //                     users[logInd].path = cdCommand(cmd, users[logInd].path);
-    //                     rewriteUserFile();
-    //                 }
-
-    //                 else if(cmd == "pwd") cout << users[logInd].path << endl;
-
-    //                 else if(cmd == "who"){
-    //                     if(users[logInd].permissions.find("w") != string::npos){
-    //                         for(int i = 0; i < users.size(); i++){
-    //                             string online;
-    //                             if(users[i].online) online = "ONLINE";
-    //                             cout << users[i].login << "\t" << online << "\t" << users[i].path << endl;
-    //                         }
-    //                     }else cout << "You doesn't have permissions for this command!" << endl;
-    //                 }
-
-    //                 else if(cmd.find("chmod ") != string::npos){
-    //                     if(users[logInd].permissions.find("c") != string::npos){
-    //                         cmd = cmd.substr(5, string::npos);
-    //                         if(cmd.find_first_not_of(" ") != string::npos)
-    //                             cmd = cmd.substr(cmd.find_first_not_of(" "), string::npos);
-    //                         cmd = cmd.substr(0, cmd.find_last_not_of(" ") + 1);
-
-    //                         if(chmodCommand(cmd) == 0) rewriteUserFile();
-    //                         else cout << "You can't change root permissions!" << endl;
-    //                     }else cout << "You doesn't have permissions for this command!" << endl;
-    //                 }
-
-    //                 // // TODO: Учесть, что юзер может быть залогинен (предварительно дискон)
-    //                 // else if(cmd.find("rmusr ") != string::npos){
-    //                 //     if(users[logInd].permissions.find("r") != string::npos){
-    //                 //         cmd = cmd.substr(5, string::npos);
-    //                 //         if(cmd.find_first_not_of(" ") != string::npos)
-    //                 //             cmd = cmd.substr(cmd.find_first_not_of(" "), string::npos);
-    //                 //         cmd = cmd.substr(0, cmd.find_last_not_of(" ") + 1);
-
-    //                 //         if(cmd == users[logInd].login)
-    //                 //             cout << "You can't remove yourself!" << endl;
-    //                 //         else if(cmd == "root")
-    //                 //             cout << "You can't remove root user!" << endl;
-    //                 //         // как-то выйти
-
-    //                 //         if(rmusrCommand(cmd) == 0) rewriteUserFile();
-    //                 //         else cout << "This user doesn't exists!" << endl;
-    //                 //     }else cout << "You doesn't have permissions for this command!" << endl;
-    //                 // }
-
-    //                 else if(cmd == "quit" || cmd == "exit"){
-    //                     users[logInd].online = false;
-    //                     return 0;
-    //                 }
-
-    //                 else if(cmd == "logout"){
-    //                     users[logInd].online = false;
-    //                     break;
-    //                 }
-    //             }
-
-    //             state = CONNECT;
-
-    //             break;
-    //         default:
-    //             break;
-    //     }
-    // }
-
-    //     // Логин
-    //     // cout << "Login: ";
-    //     // getline(cin, login);
-
-    //     // cout << "Password: ";
-    //     // while((pw = getch()) != '\r'){
-    //     //     password += pw;
-    //     //     // cout << pw << endl;
-    //     // }
-    //     // cout << endl;
 }
