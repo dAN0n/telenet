@@ -467,7 +467,8 @@ int main(int argc, char *argv[]){
 
 
 bool compareDir(string i, string j){
-    bool iDir, jDir = false;
+    bool iDir = false;
+    bool jDir = false;
 
     if(i.find("/") != string::npos) iDir = true;
     if(j.find("/") != string::npos) jDir = true;
