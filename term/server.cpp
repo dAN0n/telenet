@@ -11,6 +11,7 @@ string MSG_NO_PERMISSIONS    = "You doesn't have permissions for this command!\n
 string MSG_LOCK_PERMISSIONS  = "You can't change root and yours permissions!\n";
 string MSG_LOCK_KILL         = "You can't kill root and yourself!\n";
 string MSG_KILL_FAILED       = "This user is offline or not exists!\n";
+string MSG_INVALID_CMD       = "Invalid command!\n";
 
 struct clientDescriptor{
     SOCKET sock;
@@ -121,6 +122,7 @@ DWORD WINAPI clientProcess(void* socket){
                     pos = line.find(" ");
                     password = line.substr(0, pos);
                 }
+                else sendMSG(clientDesc[ind].sock, MSG_INVALID_CMD);
                 
                 if(cmd == "login"){
                     if(loginCommand(login, password) == 0){
@@ -179,19 +181,19 @@ DWORD WINAPI clientProcess(void* socket){
                     if(recvS(clientDesc[ind].sock, buffer, cmd) != 1){
                         exitFlag = true;
                         break;
-                    }else cout << clientDesc[ind].ip << ":" << clientDesc[ind].port << "|" << clientDesc[ind].login << "| " << cmd << endl;
+                    }else cout << clientDesc[ind].ip << ":" << clientDesc[ind].port
+                               << "|" << clientDesc[ind].login << "| " << cmd << endl;
 
                     if(cmd == "ls"){
                         names = lsCommand(users[logInd].path);
+
                         for(int i = 0; i < names.size(); i++)
                             sendMSG(clientDesc[ind].sock, names[i] + "\n");
                         names.clear();
                     }
 
                     else if(cmd.find("cd ") != string::npos){
-                        cmd = cmd.substr(2, string::npos);
-                        if(cmd.find_first_not_of(" ") != string::npos)
-                            cmd = cmd.substr(cmd.find_first_not_of(" "), string::npos);
+                        cmd = cmd.substr(3, string::npos);
                         cmd = cmd.substr(0, cmd.find_last_not_of(" ") + 1);
 
                         users[logInd].path = cdCommand(clientDesc[ind].sock, cmd, users[logInd].path);
@@ -215,9 +217,7 @@ DWORD WINAPI clientProcess(void* socket){
 
                     else if(cmd.find("chmod ") != string::npos){
                         if(users[logInd].permissions.find("c") != string::npos){
-                            cmd = cmd.substr(5, string::npos);
-                            if(cmd.find_first_not_of(" ") != string::npos)
-                                cmd = cmd.substr(cmd.find_first_not_of(" "), string::npos);
+                            cmd = cmd.substr(6, string::npos);
                             cmd = cmd.substr(0, cmd.find_last_not_of(" ") + 1);
 
                             pos = cmd.find(" ");
@@ -235,9 +235,7 @@ DWORD WINAPI clientProcess(void* socket){
 
                     else if(cmd.find("kill ") != string::npos){
                         if(users[logInd].permissions.find("k") != string::npos){
-                            cmd = cmd.substr(4, string::npos);
-                            if(cmd.find_first_not_of(" ") != string::npos)
-                                cmd = cmd.substr(cmd.find_first_not_of(" "), string::npos);
+                            cmd = cmd.substr(5, string::npos);
                             cmd = cmd.substr(0, cmd.find_last_not_of(" ") + 1);
 
                             if(cmd == "root" || cmd == users[logInd].login){
@@ -252,6 +250,8 @@ DWORD WINAPI clientProcess(void* socket){
                     else if(cmd == "logout"){
                         break;
                     }
+
+                    else sendMSG(clientDesc[ind].sock, MSG_INVALID_CMD);
                 }
 
                 WaitForSingleObject(hMutex,INFINITE);
@@ -377,11 +377,6 @@ void startWSA(){
 }
 
 int main(int argc, char *argv[]){
-
-    setlocale(LC_ALL, "Russian");
-    SetConsoleCP(1251);
-    SetConsoleOutputCP(1251);
-
     if(argc > 1){
         for(int i = 1; i < argc; i++){
             string opt = string(argv[i]);
@@ -410,7 +405,7 @@ int main(int argc, char *argv[]){
                 cout << "-b, --buffer [1-9]         Buffer length, default: 8"      << endl;
                 cout << "-h, --help                 Show this message and close"    << endl;
                 cout << "-p, --port [1-65535]       Listen port, default: 8080"     << endl;
-                cout << "-t, --threads [1-10]       Maximum threads, default: 3"    << endl << endl;
+                cout << "-t, --threads [1-10]       Maximum threads, default: 2"    << endl << endl;
                 cout << "SERVER OPTIONS"                                            << endl;
                 cout << "l                          List all online clients"        << endl;
                 cout << "k [number]                 Kill client"                    << endl;

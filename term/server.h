@@ -9,7 +9,6 @@
 #include <cstring>
 #include <algorithm>
 #include <conio.h>
-#include <clocale>
 
 #define MAX_THREADS_POSSIBLE 10
 #define MAX_THREADS_DEFAULT 2
