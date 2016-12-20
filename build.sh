@@ -8,3 +8,6 @@
 
 cd term
 make
+
+cd ../udp
+make
