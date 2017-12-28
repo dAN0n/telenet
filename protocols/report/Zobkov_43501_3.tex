@@ -1,0 +1,37 @@
+% НЕ ЗАБЫВАЙТЕ МЕНЯТЬ ИМЯ ОСНОВНОГО ФАЙЛА В ПЕРВЫХ СТРОЧКАХ ВКЛЮЧАЕМЫХ ФАЙЛОВ,
+% ЭТО УПРОЩАЕТ НАВИГАЦИЮ И РАБОТУ С ПРОЕКТОМ, НО ДЕЛАТЬ ЭТО НЕОБЯЗАТЕЛЬНО
+\documentclass[oneside,final,14pt]{extarticle}				% Тип документа
+
+\usepackage{silence}										% Скрывает предупреждения
+\WarningFilter{latex}{You have requested package}			% Скрытие предупреждения об использовании собственного стилевого файла
+
+\usepackage{sty/SPbSTUreports}								% Стилевой файл
+
+%% ЗАПОЛНЕНИЕ ТИТУЛЬНОГО ЛИСТА %%
+\university{Санкт-Петербургский политехнический университет Петра Великого}
+\faculty{Институт компьютерных наук и технологий}
+\department{Кафедра компьютерных систем и программных технологий}
+\student{Зобков Д. А.}
+% \studentt{}
+\group{43501/3}
+\teacher{Зозуля А. В.}
+% \teacherr{}
+\papertype{лабораторным работам}
+\lessontype{Сети и телекоммуникации}
+\theme{Программирование клиент/серверных приложений прикладного протокола}
+% \variant[~\textnumero]{2}
+% \titleright{45}
+\wordfont													% При наличии используются шрифты PSCyr и шрифт математики Times New Roman стиля (в XeTeX только математика)
+
+\begin{document}
+
+	\maketitle												% Генерация титульного листа
+	\toc													% Генерация оглавления
+
+	% \include*{sections/goaltask}							% Цель работы/Постановка задачи
+	\include*{sections/lab}									% Ход работы
+	% \include*{sections/conclusion}							% Выводы
+	% \lib													% Генерация списка литературы
+	\include*{sections/appendix}							% Приложения
+
+\end{document}
