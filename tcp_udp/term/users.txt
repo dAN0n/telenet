@@ -1,0 +1,4 @@
+root||admin||ckw||D:\4 course\gitrepos/telenet/term
+dan0n||pass||wk||D:\4 course
+mama||papa||||D:\4 course\gitrepos\telenet\term
+test||pass||||D:\4 course\gitrepos\telenet\term
