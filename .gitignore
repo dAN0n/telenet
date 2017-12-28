@@ -1,3 +1,14 @@
+*.bbl
+*.blg
+*.log
+*.bcf
+*.aux
+*.run.xml
+*.synctex.gz
+*.toc
+*.bib.bak
+*.fdb_latexmk
+*.fls
 *.exe
 trivial/client
 mthr/client

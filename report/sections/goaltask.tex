@@ -1,0 +1,160 @@
+% !TEX root = ../TeleNet_Zobkov_435013.tex
+\section{Цель работы}
+
+Ознакомиться с принципами программирования собственных протоколов, созданных на основе TCP и UDP.
+
+\section{Программа работы}
+
+\paragraph{TCP:}
+
+\begin{enumerate}
+	\item Реализация простейшего TCP клиента и сервера на ОС Linux и Windows соответственно;
+	\item Реализация многопоточного обслуживания клиентов на сервере;
+	\item Реализация собственного протокола на основе TCP для индивидуального задания;
+	\item Реализация синхронизации с помощью мьютексов.
+\end{enumerate}
+
+\paragraph{UDP:}
+
+\begin{enumerate}
+	\item Модификация клиента и сервера для протокола UDP на ОС Windows и Linux соответственно;
+	\item Обеспечение надежности протокола UDP посредством нумерации пакетов и посылки ответов.
+\end{enumerate}
+
+\section{Индивидуальное задание}
+
+Разработать клиент-серверную систему терминального доступа, позволяющую клиентам подсоединяться к серверу и выполнять элементарные команды операционной системы.
+
+\section{Протокол команд}
+
+\subsection{Форматы команд}
+
+Для получения или изменения информации на сервере клиент посылает серверу текстовые команды. Набор команд для TCP клиента должен удовлетворять следующим требованиям:
+
+\begin{itemize}
+	\item Все команды пишутся в нижнем регистре;
+	\item Соответствие шаблону сообщения.
+\end{itemize}
+
+Протокол TCP имеет следующий шаблон сообщения:
+
+\[\text{<команда>} ~ \text{<атрибут>} ~ \text{<атрибут>}\]
+
+В начале сообщения, всегда присутствует требуемая для выполнения команда, далее в зависимости от нее могут идти атрибуты, которые отделены друг от друга пробелом. В случае, если пересылаемое клиентом сообщение не соотвествует шаблону, сервер сообщает о неверно введенной команде.
+
+Команды оперируют некоторыми сущностями:
+
+\begin{table}[H]
+	\centering
+	\begin{tabular}{|c|M{12cm}|}
+		% \hline \multirow{2}*{\textnumero} & \multirow{2}*{Частота, МГц} & \multirow{2}*{Период, нс} & \multicolumn{2}{c|}{Энергопотребление, мВт}\\
+		% \cline{4-2}\cline{5-2} &     &       & Полное & Динамическое	\\
+		\hline Мнемоника               & Описание	\\
+		\hline <LOGIN>               & Имя пользователя	\\
+		\hline <PASSWORD>               & Пароль пользователя	\\
+		\hline <PATH>               & Относительный путь к новой директории	\\
+		\hline <PERMISSIONS>               & Привилегии на использование некоторых команд:
+		\begin{center}\begin{minipage}{.2\textwidth}
+		\begin{enumerate}
+	\item c --- chmod;
+	\item k --- kill;
+	\item w --- who.
+\end{enumerate}\end{minipage}\end{center}	\\
+		\hline <ID>               & ID пользователя, используется для команды k <ID> на сервере	\\ \hline
+	\end{tabular}
+	\caption{Команды администратора сервера}
+	\label{tab:tcp_after}
+\end{table}
+
+Список команд, которыми оперирует клиент:
+
+\begin{table}[H]
+	\centering
+	\begin{tabular}{|c|M{3cm}|M{5cm}|M{7cm}|}
+		% \hline \multirow{2}*{\textnumero} & \multirow{2}*{Частота, МГц} & \multirow{2}*{Период, нс} & \multicolumn{2}{c|}{Энергопотребление, мВт}\\
+		% \cline{4-2}\cline{5-2} &     &       & Полное & Динамическое	\\
+		\hline Команда               & Атрибуты   & Действие  & Ответ сервера	\\
+		\hline login               & <LOGIN> <PASSWORD> & Попытка авторизации, используя введенный логин и пароль  & \begin{enumerate}
+	\item Вывод текущей директории;
+	\item Login/password not match!
+	\item This user already online!
+\end{enumerate}			\\
+		\hline addusr              & <LOGIN> <PASSWORD> & Попытка зарегистрироваться, используя введенный логин и пароль & \begin{enumerate}
+	\item Вывод текущей директории;
+	\item Matching login/password are not allowed!
+	\item This user already exists!
+\end{enumerate}			\\ \hline
+	\end{tabular}
+	\caption{Команды пользователя до авторизации}
+	\label{tab:tcp_before}
+\end{table}
+
+\begin{table}[H]
+	\centering
+	\begin{tabular}{|c|M{3cm}|M{5cm}|M{7cm}|}
+		% \hline \multirow{2}*{\textnumero} & \multirow{2}*{Частота, МГц} & \multirow{2}*{Период, нс} & \multicolumn{2}{c|}{Энергопотребление, мВт}\\
+		% \cline{4-2}\cline{5-2} &     &       & Полное & Динамическое	\\
+		\hline Команда               & Атрибуты   & Действие  & Ответ сервера	\\
+		\hline ls               & Отсутствуют & Вывод содержимого в текущей директории  & Список файлов и директорий		\\
+		\hline pwd              & Отсутствуют & Вывод абсолютного пути текущей директории & Текущая директория			\\
+		\hline cd              & <PATH> & Перемещение в заданную директорию & \begin{enumerate}
+	\item Вывод новой текущей директории;
+	\item Directory ``\%DirectoryName\%'' is not exist.
+\end{enumerate}			\\
+		\hline who              & Отсутствуют & Вывод списка пользователей, их текущей директории и наличия в сети & \begin{enumerate}
+	\item Вывод информации;
+	\item You doesn't have permissions for this command!
+\end{enumerate}			\\
+		\hline chmod              & <LOGIN> <PERMISSIONS> & Изменение привилегий другого пользователя & \begin{enumerate}
+	\item Вывод текущей директории;
+	\item You doesn't have permissions for this command!
+	\item You can't change root and yours permissions!
+	\item This user doesn't exists!
+\end{enumerate}			\\
+		\hline kill              & <LOGIN> & Завершение сеанса другого пользователя & \begin{enumerate}
+	\item Вывод текущей директории;
+	\item You doesn't have permissions for this command!
+	\item You can't kill root and yourself!
+	\item This user is offline or not exists!
+\end{enumerate}			\\
+		\hline logout              & Отсутствуют & Смена пользователя & Login or register new user (login/addusr LOGIN PASSWORD)			\\ \hline
+	\end{tabular}
+	\caption{Команды пользователя после успешной авторизации}
+	\label{tab:tcp_after}
+\end{table}
+
+Список команд, которыми оперирует администратор сервера:
+
+\begin{table}[H]
+	\centering
+	\begin{tabular}{|c|c|M{12cm}|}
+		% \hline \multirow{2}*{\textnumero} & \multirow{2}*{Частота, МГц} & \multirow{2}*{Период, нс} & \multicolumn{2}{c|}{Энергопотребление, мВт}\\
+		% \cline{4-2}\cline{5-2} &     &       & Полное & Динамическое	\\
+		\hline Команда               & Атрибуты   & Действие	\\
+		\hline l               & Отсутствуют   & Вывод всех подключенных пользователей в виде: <ID>|<IP>:<PORT>|<LOGIN> (если авторизован, если нет, то <LOGIN> отсутствует)	\\
+		\hline k               & <ID>   & Отключение пользователя с введенным <ID>	\\
+		\hline q               & Отсутствуют   & Отключение сервера	\\ \hline
+	\end{tabular}
+	\caption{Команды администратора сервера}
+	\label{tab:tcp_after}
+\end{table}
+
+Для протокола UDP индивидуальное задание не реализовывалось, разработанное приложение представляет собой эхо-сервер, возвращающий клиенту посланное им сообщение с припиской ``Echo: ''.
+
+\subsection{Подключение к серверу}
+
+Клиент пытается подключиться к предварительно записанным ip-адресу и порту.
+
+Сервер TCP: 192.168.222.1:8080
+
+Сервер UDP: 192.168.222.15:8080
+
+ip-адрес и порт, к которому подключается клиент, можно изменить, используя при его запуске ключи -i и -p соответственно, также возможно изменить порт сервера ключом -p при его запуске.
+
+\subsection{Формат хранимых файлов на сервере}
+
+Серверная программа TCP позволяет сохранять, изменять и загружать информацию о пользователях. На сервере обязательно присутствует файл users.txt, в котором хранятся существующие пользователи в следующем виде:
+
+\[\text{<USER>}||\text{<PASSWORD>}||\text{<PERMISSIONS>}||\text{<PATH>}\]
+
+Серверная программа UDP не хранит никакой информации в файлах во время своей работы.

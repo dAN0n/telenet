@@ -1,0 +1,969 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{SPbSTUreports}[03/28/2016 SPbSTU reports template v4]
+
+% Проверенные конфигурации:
+% Windows+MiKTeX 2.9+pdfLaTeX+PSCyr (устанавливается отдельно)
+% Ubuntu 14.04+TeXLive 2015+pdfLaTeX+PSCyr (устанавливается отдельно) (возможно, придется установить biblatex-gost 1.5, если не установит сразу)
+% Ссылка на скрипт для установки TeXLive 2015: https://github.com/scottkosty/install-tl-ubuntu
+
+% ВОЗМОЖНЫЕ ДАЛЬНЕЙШИЕ УЛУЧШЕНИЯ:
+% Проверка и настройка для других конфигураций (выяснить алгоритм для TeXLive 2013/Debian)
+
+%% УВЕЛИЧЕНИЕ ФУНКЦИОНАЛЬНОСТИ LaTeX %%
+
+	% Скрытие низкоприоритетных предупреждений
+	\RequirePackage{silence}
+	\WarningFilter{latex}{You have requested package}
+	\WarningFilter{hyperref}{Token not allowed in a PDF string}
+	\WarningFilter{microtype}{I cannot find a spacing list for font}
+
+	\RequirePackage{ifthen}						% Условия
+	\RequirePackage{etoolbox}					% Условия и защита fragile команд
+	\RequirePackage{xargs}						% Несколько опциональных аргументов
+	\RequirePackage{iftex}						% Выбор движка
+	% \newcommandx*{\su}[2][1=x, 2=y]{$#1+#2$}	% Пример
+
+	\newif\ifxetexorluatex						% Определяем новый условный оператор
+	\ifXeTeX
+		\xetexorluatextrue
+	\else
+		\ifLuaTeX
+			\xetexorluatextrue
+		\else
+			\xetexorluatexfalse
+		\fi
+	\fi
+
+%% БАЗОВЫЕ ПАКЕТЫ %%
+
+	\RequirePackage{geometry}					% Отступы
+	\geometry{									% Настройка отступов
+		a4paper,
+		left=20mm,
+		right=10mm,
+		top=15mm,
+		bottom=15mm,
+	}
+	\RequirePackage{cmap}						% Поиск и копирование в pdf
+
+	\ifxetexorluatex
+		\RequirePackage[no-math]{fontspec}						% Не использовать шрифты для математики
+		\RequirePackage{xunicode}								% Доступ к разным черточкам для букв
+		\RequirePackage{xltxtra}								% Обработка логотипов \LaTeX и т.д.
+		\RequirePackage{polyglossia}							% Загружает пакет многоязыковой вёрстки
+		\setdefaultlanguage[spelling=modern]{russian}			% Устанавливает главный язык документа
+		\setkeys{russian}{babelshorthands=true}					% babel-like пунктуация
+		\setotherlanguage{english} 								% Объявляет второй язык документа
+		\defaultfontfeatures{Ligatures={TeX},%
+			Renderer=Basic,Mapping=tex-text}					% Свойства шрифтов по умолчанию
+		\let\providelength\relax								% Исправление проблем с этими командами
+		\let\providecounter\relax
+		\RequirePackage{graphicx}								% Для создания pdf
+	\else
+		\RequirePackage[T2A,T1]{fontenc}						% Кодировка шрифтов
+		\RequirePackage[utf8]{inputenc}							% Для поддержки кириллицы
+		\RequirePackage[english,russian]{babel}					% Для русского оформления
+		\selectlanguage{russian}								% Язык для babel
+		\RequirePackage[pdftex]{graphicx}						% Для создания pdf
+		\pdfcompresslevel=9										% pdf сжатие
+	\fi
+
+	\RequirePackage{indentfirst}				% Отступ (красная строка)
+	\graphicspath{{img/}}						% Папка для изображений	
+	\RequirePackage{newclude}					% include*{} убирает \clearpage
+
+%% МАТЕМАТИКА %%
+
+	\RequirePackage{amsthm,amssymb,amsmath}		% Математические выражения
+	\RequirePackage{mathtools}					% Всякие мелочи для математики
+
+	\RequirePackage{icomma}						% Умная запятая ($2,4$ $2, 4$)
+
+	% Дублирование знаков при переносе в формулах
+	\newcommand*{\hm}[1]{#1\nobreak\discretionary{}%
+		{\hbox{$\mathsurround=0pt #1$}}{}}
+
+	% Русские варианты некоторых математических символов
+	\renewcommand{\epsilon}{\ensuremath{\varepsilon}}
+	\renewcommand{\phi}{\ensuremath{\varphi}}
+	\renewcommand{\kappa}{\ensuremath{\varkappa}}
+	\renewcommand{\le}{\ensuremath{\leqslant}}
+	\renewcommand{\leq}{\ensuremath{\leqslant}}
+	\renewcommand{\ge}{\ensuremath{\geqslant}}
+	\renewcommand{\geq}{\ensuremath{\geqslant}}
+	\renewcommand{\emptyset}{\varnothing}
+
+%% ТЕКСТ И СИМВОЛЫ %%
+
+	\RequirePackage{setspace}					% Межстрочный интервал
+	% \onehalfspacing							% 1.5
+	% \doublespacing							% 2
+	% \singlespacing							% 1
+
+	\RequirePackage{soulutf8}					% Для пакета soul
+	\RequirePackage{soul} 						% Зачеркивания и прочие модификаторы текста
+	\ifxetexorluatex
+		\newfontfamily\SOUL@tt{cmuntt.otf}		% Исправление проблемы с пакетом soul в XeTeX
+	\else
+	\fi
+	\RequirePackage{cancel} 					% Зачеркивания (диагональные)
+	\RequirePackage{enumerate}					% Расширенные возможности перечислений
+	\RequirePackage{enumitem}					% Отступы между пунктами списка
+
+	\sloppy										% Избавляемся от переполнений
+	\clubpenalty=10000							% Запрещаем разрыв страницы после первой
+	\widowpenalty=10000							% и после последней строки абзаца
+	\setlength{\parindent}{2.5em}				% Абзацный отступ (5 знаков)
+
+	\ifxetexorluatex
+	\else
+		\RequirePackage[%
+			activate={true,nocompatibility},
+			final,
+			stretch=10,
+			shrink=10,
+			kerning=true,
+			tracking=true,
+			spacing=true
+		]{microtype}											% Улучшение расположения текста
+		\SetTracking{encoding={*}, shape=sc}{40}				% Улучшение пробелов (microtype)
+	\fi
+
+	\renewcommand{\labelitemi}{\normalfont\bfseries{--}}		% Дефис для ненумерованных списков
+	\setlist{
+		topsep=0pt,
+		itemsep=0ex,
+		partopsep=1ex,
+		parsep=0ex
+	}											% Отступы и интервалы
+
+	% Фикс вложенных enumerate (1.2.3, для более глубоких есть \begin{enumerate}[label*=\arabic*.])
+	\renewcommand{\labelenumii}{\theenumii}
+	\renewcommand{\theenumii}{\theenumi.\arabic{enumii}.}
+	\renewcommand{\labelenumiii}{\theenumiii}
+	\renewcommand{\theenumiii}{\theenumii\arabic{enumiii}.}
+
+%% ШРИФТЫ %%
+
+	% Команда \wordfont включает шрифты PSCyr, если они установлены
+	% Здесь устанавливается набор Times New Roman + Arial + Courier New
+	% Для XeTeX включает только шрифт математики
+
+	\ifxetexorluatex
+		\newcommand*{\wordfont}{%
+			% Математика Times New Roman стиля (возможно, придется обновить MiKTeX)
+			\IfFileExists{newtxmath.sty}{\RequirePackage{newtxmath}}
+		}
+	\else
+		\newcommand*{\wordfont}{%
+			\IfFileExists{pscyr.sty}{%
+				% Математика Times New Roman стиля (возможно, придется обновить MiKTeX)
+				\IfFileExists{newtxmath.sty}{\RequirePackage{newtxmath}}
+
+				\RequirePackage{pscyr}
+				\renewcommand{\rmdefault}{ftm}
+				\renewcommand{\sfdefault}{far}
+				\renewcommand{\ttdefault}{fcr}
+			}{}
+		}
+	\fi
+
+	\RequirePackage{lmodern}					% Набор шрифтов (на всякий случай)
+
+%% ЛИСТИНГИ %%
+
+	\RequirePackage{listings}					% Листинги
+	\renewcommand{\lstlistingname}{Листинг}		% Исправление подписи листинга для XeTeX
+	\RequirePackage{verbatim}					% Для простых листингов
+
+%% ЗАГОЛОВКИ %%
+
+	\RequirePackage{titlesec}					% Улучшение секционирования
+	\RequirePackage{titletoc}					% Улучшение содержания
+	\RequirePackage{tocloft}					% Улучшение содержания и листов рисунков/таблиц
+
+	% Настройка titlesec
+	\titleformat{\section}{\normalsize\bfseries}{\thesection}{1em}{}
+	\titleformat{\subsection}{\normalsize}{\thesubsection}{1em}{}
+	\titleformat{\subsubsection}{\normalsize}{\thesubsubsection}{1em}{}
+
+	% Убираем переносы в заголовках
+	\renewcommand{\section}{\@startsection{section}{1}{0ex}{-3.5ex plus -1ex minus -.2ex}{2.3ex plus.2ex}{\raggedright\normalfont\bfseries}}
+	\renewcommand{\subsection}{\@startsection{subsection}{2}{0ex}{-3.5ex plus -1ex minus -.2ex}{2.3ex plus.2ex}{\raggedright\normalfont}}
+	\renewcommand{\subsubsection}{\@startsection{subsubsection}{3}{0ex}{-3.5ex plus -1ex minus -.2ex}{2.3ex plus.2ex}{\raggedright\normalfont}}
+
+%% ОГЛАВЛЕНИЕ %%
+
+	\renewcommand{\cfttoctitlefont}{\hfill\large\bfseries}		% "СОДЕРЖАНИЕ" посередине
+	\renewcommand{\cftaftertoctitle}{\hfill}
+
+	% Отбивка точками
+	\renewcommand{\cftsecdotsep}{\cftdotsep}					% До страницы начала раздела
+	\renewcommand{\cftsecleader}{\cftdotfill{\cftsecdotsep}}	% Нежирные точки у разделов
+
+	\cftsetrmarg{2.55em plus1fil}								% Убираем переносы
+	\renewcommand{\cftsecpagefont}{\normalfont}					% Нежирные страницы у разделов
+
+%% КОЛОНТИТУЛЫ %%
+
+	\RequirePackage{fancyhdr}					% Колонтитулы
+
+	% Настройка fancyhdr
+	\renewcommand{\headrulewidth}{0pt}			% Отключает полосу сверху
+	\pagestyle{fancy}							% Включение пакета fancyhdr
+	\lhead{}									% Пусто вверху слева
+	\chead{}									% Пусто вверху по центру
+	\rhead{}									% Пусто вверху справа
+	\lfoot{}									% Пусто вверху слева
+	\cfoot{}									% Пусто вверху по центру
+	\rfoot{\thepage}							% Номер страницы внизу справа
+
+	% Исправление неправильного размещения номера страницы в содержании
+	\fancypagestyle{plain}{%
+		\fancyhf{} 								% Очистить все поля
+		\fancyfoot[R]{\thepage}					% Установка внизу справа
+	}
+
+% %% ОБЩЕЕ ДЛЯ КАРТИНОК/ТАБЛИЦ %%
+
+	\RequirePackage[%
+		labelsep=period,
+		singlelinecheck=false,
+		justification=centering
+	]{caption}									% Для рис. и табл.	
+
+	\RequirePackage{float}						% Используется для опции [H]
+	\RequirePackage{wrapfig}					% Обтекание рисунков и таблиц текстом
+
+	% Настройка chngcntr
+	\numberwithin{equation}{section}			% Формулы нумеруются по секциям (amsmath)
+	\RequirePackage{chngcntr}					% Картинки/таблицы нумеруются по секциям
+	\counterwithin{figure}{section}				% Настройка пакета chngcntr
+	\counterwithin{table}{section}
+	\AtBeginDocument{\counterwithin{lstlisting}{section}}
+	%\counterwithin{figure}{subsection}
+	%\counterwithin{table}{subsection}
+
+	% Настройка subcaption
+	\RequirePackage{subcaption}							% Несколько картинок в одной
+	\renewcommand{\thesubfigure}{\asbuk{subfigure}}		% Русские буквы в подписях subcaption
+	\DeclareCaptionLabelFormat{r-parens}{\textbf{#2)}}	% Стилизация subcaption
+
+	\captionsetup{font=normalsize}				% Основные настройки подписей
+	\captionsetup[sub]{							% Настройки подподписей
+		font=small,								% Сделать шрифт меньше для текста и label
+		% textfont=sl,							% Сделать только текст подписи наклонным
+		labelformat=r-parens}					% Вызов этой настройки
+
+%% ТАБЛИЦЫ %%
+
+	\RequirePackage{multirow}					% Для объединения строк
+	\RequirePackage{multicol}					% Несколько колонок (не только для таблиц)
+	\RequirePackage{tabularx}					% Окружение c опцией x для подгона ширины столбца
+	\RequirePackage{tabulary}					% Окружение для выравнивания по высоте
+	\RequirePackage{spreadtab}					% Окружение с именами ячеек
+	\RequirePackage{array}						% Новые типы столбцов
+	\RequirePackage{longtable}					% Многостраничная таблица
+
+	\RequirePackage{pdflscape}					% Поворот страницы для широких таблиц
+
+	% Определение новых типов столбцов (array): 
+	% P (по центру к верхней части)
+	% M (по центру ячейки)
+	\newcolumntype{P}[1]{>{\centering\arraybackslash}p{#1}}
+	\newcolumntype{M}[1]{>{\centering\arraybackslash}m{#1}}
+
+	\setlength{\extrarowheight}{1pt}			% Увеличение высоты ячеек таблицы (array)
+
+	% Использование \captioncont для "Продолжение таблицы" в зоне \endhead (longtable)
+	\DeclareCaptionLabelFormat{continued}{Продолжение таблицы~#2}
+	\newcommand\captioncont{%
+		\captionsetup{labelformat=continued}
+		\caption[]{}\\
+	}
+
+	\captionsetup[table]{justification=raggedleft}
+	\floatstyle{plaintop}
+	\restylefloat{table}
+
+%% КАРТИНКИ %%
+
+	\RequirePackage{epstopdf}					% Конвертация eps картинок в pdf (работает плохо)
+	\epstopdfsetup{update}						% Обновляет pdf только при обновлении eps
+
+	\captionsetup[figure]{justification=centering}
+	\floatstyle{plain}
+	\restylefloat{figure}
+
+%% ГРАФИКИ %%
+
+	\RequirePackage{pgfplots}					% Для графиков (сложен и неудобен почти всегда)
+	\pgfplotsset{compat=1.12}					% Принудительное использование данной версии
+
+%% ЦВЕТОВАЯ ПАЛИТРА %%
+
+	\RequirePackage{xcolor}						% Управление цветами
+
+	\definecolor{mlgreen}{RGB}{28,172,0}
+	\definecolor{mllilas}{RGB}{170,55,241}
+	\definecolor{vhred}{RGB}{179,0,0}
+	\definecolor{javared}{rgb}{0.6,0,0}
+	\definecolor{javagreen}{rgb}{0.25,0.5,0.35}
+	\definecolor{javapurple}{rgb}{0.5,0,0.35}
+	\definecolor{javadocblue}{rgb}{0.25,0.35,0.75}
+	\definecolor{maroon}{RGB}{128,0,0}
+	\definecolor{darkolivegreen}{RGB}{85,107,47}
+	\definecolor{lbcolor}{rgb}{0.95,0.95,0.95}
+	\definecolor{frameline}{rgb}{0.78,0.78,0.78}
+
+%% ГИПЕРССЫЛКИ %%
+
+	% Пакеты, чувствительные к порядку вызова!!!
+	\RequirePackage[russian]{varioref}			% Умные указания страниц
+	\RequirePackage[
+		unicode,
+		bookmarks=true,
+		allbordercolors=blue,
+		urlbordercolor=blue,
+		pdfborderstyle={/S/U/W 0.5}
+	]{hyperref}									% Гиперссылки
+	\ifxetexorluatex
+		\RequirePackage{sty/cleveref}			% Умные указания страниц
+	\else
+		\RequirePackage[russian]{sty/cleveref}	% Умные указания страниц
+	\fi
+	% Скрывает предупреждение c etex
+	\expandafter\def\csname ver@etex.sty\endcsname{3000/12/31}
+	\let\globcount\newcount						% Фикс для autonum
+	\RequirePackage{autonum}					% Умная нумерация формул (требует 3 компиляции!!!)
+
+	\RequirePackage[numbered]{bookmark}			% Закладки
+
+	% Настройки cleveref
+	\crefformat{equation}{(#2#1#3)}
+	\crefrangeformat{equation}{(#3#1#4)-(#5#2#6)}
+	\crefmultiformat{equation}{(#2#1#3)}{ и~(#2#1#3)}{, (#2#1#3)}{ и~(#2#1#3)}
+	\crefname{appsec}{прил.}{прил.}
+	\Crefname{appsec}{Приложение}{Приложения}
+	\crefname{listing}{}{}
+	\Crefname{listing}{Листинг}{Листинги}
+
+	% Настройки varioref
+	\ifxetexorluatex
+		\renewcommand\reftextbefore{на предыдущей странице}%
+		\renewcommand\reftextcurrent{}
+	\else
+		\addto\extrasrussian{%					% Исправляет странную подпись
+			\renewcommand\reftextbefore{на предыдущей странице}%
+			\renewcommand\reftextcurrent{}
+		}
+	\fi
+	\renewcommand{\vref}[1]{\cref{#1} \vpageref{#1}}
+	\renewcommand{\Vref}[1]{\Cref{#1} \vpageref{#1}}
+
+%% СПИСОК ЛИТЕРАТУРЫ %%
+
+	% Требуется 3-4 компиляции:
+	% latex
+	% biber
+	% latex - 1-2 раза
+	
+	% Используется команда \lib для создания библиографии
+
+	% Для создания библиографической базы можно использовать JabRef
+	% Создать область наиболее часто используемых полей для заполнения можно, добавив в меню
+	% Options -> Set up general fields следующие строки (без %):
+	% biber:title;author;year;publisher;address;language;langid;pagetotal;media;url;urldate;bibtexkey
+	% biber_misc:pages;note;editor;translator;edition;version;volumes;books;parts
+
+	% Подробнее о ГОСТ стиле: https://www.ctan.org/pkg/biblatex-gost
+
+	\RequirePackage{csquotes}					% Цитирование, используется biblatex
+	\RequirePackage[%
+		autolang=other,							% Язык
+		bibencoding=utf8,						% Кодировка
+		sorting=none,							% Name,Title,Year или sorting=none
+		maxbibnames=3,							% Максимальное число авторов
+		minbibnames=2,							% Число авторов, отображаемое при сокращении
+		style=gost-numeric,						% Стиль
+		backend=biber,							% Использование biber вмето BiBTeX
+		% backref,								% Указание на место цитирования
+		% backrefstyle=two						% Компрессия страниц указаний на место цитирования
+	]{biblatex}									% Библиография
+
+%% ДРУГИЕ СПИСКИ %%
+
+	% Команды \lib, \toc, \lof, \lot, \lol
+
+	\newcommand*{\lib}[1][Список литературы]{%
+		\newpage
+		\phantomsection
+		\addcontentsline{toc}{section}{#1} 
+		\printbibliography[title=#1]
+	}
+
+	\newcommand*{\toc}[1][СОДЕРЖАНИЕ]{%
+		\renewcommand\contentsname{#1}
+		\ifxetexorluatex
+			\tableofcontents
+		\else
+			\microtypesetup{protrusion=false}	% Отключение висячей пунктуации (microtype)
+			\tableofcontents
+			\microtypesetup{protrusion=true}	% Включение висячей пунктуации (microtype)
+		\fi
+		\clearpage
+	}
+
+	\newcommand*{\lof}[1][Список иллюстраций]{%
+		\renewcommand\listfigurename{#1}
+		\newpage
+		\phantomsection
+		\addcontentsline{toc}{section}{#1}
+		\ifxetexorluatex
+			\listoffigures
+		\else
+			\microtypesetup{protrusion=false}	% Отключение висячей пунктуации (microtype)
+			\listoffigures
+			\microtypesetup{protrusion=true}	% Включение висячей пунктуации (microtype)
+		\fi
+		\clearpage
+	}
+
+	\newcommand*{\lot}[1][Список таблиц]{%
+		\renewcommand\listtablename{#1}
+		\newpage
+		\phantomsection
+		\addcontentsline{toc}{section}{#1}
+		\ifxetexorluatex
+			\listoftables
+		\else
+			\microtypesetup{protrusion=false}	% Отключение висячей пунктуации (microtype)
+			\listoftables
+			\microtypesetup{protrusion=true}	% Включение висячей пунктуации (microtype)
+		\fi
+		\clearpage
+	}
+
+	% РАБОТАЕТ ТОЛЬКО С ПАКЕТОМ LISTINGS
+	\newcommand*{\lol}[1][Список листингов]{%
+		\renewcommand\lstlistlistingname{#1}
+		\newpage
+		\phantomsection
+		\addcontentsline{toc}{section}{#1}
+		\ifxetexorluatex
+			\lstlistoflistings
+		\else
+			\microtypesetup{protrusion=false}	% Отключение висячей пунктуации (microtype)
+			\lstlistoflistings
+			\microtypesetup{protrusion=true}	% Включение висячей пунктуации (microtype)
+		\fi
+		\clearpage
+	}
+
+%% ТИТУЛЬНЫЙ ЛИСТ %%
+
+	% Используйте \maketitle для вызова, при сборке без необходимых команд в преамбуле
+	% они будут отображены на листе.
+	% Дополнительные команды:
+	% \faculty{} для отображения факультета/института
+	% \variant[delimiter]{number} для номера варианта
+	% \titleright{} для сдвига области имен
+
+	\newcommand*{\university}[1]{\gdef\@university{\protecting{#1}}}
+	\newcommand*{\@university}{\texttt{\string\university\{\}}}
+
+	\newcommand*{\faculty}[1]{\gdef\@faculty{\protecting{#1}}}
+	\newcommand*{\@faculty}{\texttt{\string\faculty\{\}}}	
+
+	\newcommand*{\department}[1]{\gdef\@department{\protecting{#1}}}
+	\newcommand*{\@department}{\texttt{\string\department\{\}}}
+
+	\newcommand*{\student}[1]{\gdef\@student{\protecting{#1}}}
+	\newcommand*{\@student}{\texttt{\string\student\{\}}}
+
+	\newcommand*{\studentt}[1]{\gdef\@studentt{\protecting{#1}}}
+	\newcommand*{\@studentt}{\texttt{\string\studentt\{\}}}
+
+	\newcommand*{\group}[1]{\gdef\@group{\protecting{#1}}}
+	\newcommand*{\@group}{\texttt{\string\group\{\}}}
+
+	\newcommand*{\teacher}[1]{\gdef\@teacher{\protecting{#1}}}
+	\newcommand*{\@teacher}{\texttt{\string\teacher\{\}}}
+
+	\newcommand*{\teacherr}[1]{\gdef\@teacherr{\protecting{#1}}}
+	\newcommand*{\@teacherr}{\texttt{\string\teacherr\{\}}}
+
+	\newcommand*{\papertype}[1]{\gdef\@papertype{\protecting{#1}}}
+	\newcommand*{\@papertype}{\texttt{\string\papertype\{\}} (в дат. п.)}
+
+	\newcommand*{\lessontype}[1]{\gdef\@lessontype{\protecting{#1}}}
+	\newcommand*{\@lessontype}{\texttt{\string\lessontype\{\}}}
+	
+	\newcommand*{\theme}[1]{\gdef\@theme{\protecting{#1}}}
+	\newcommand*{\@theme}{\texttt{\string\theme\{\}}}
+
+	\newcommand*{\variant}[2][~]{\gdef\@variant{\protecting{Вариант#1#2}}}
+	\newcommand*{\@variant}{\texttt{\string\variant\{\}}}
+
+	\newcommand*{\titleright}[1]{\gdef\@titleright{#1}}
+	\newcommand*{\@titleright}{45}
+
+	\renewcommand*{\maketitle}{%
+	\begin{titlepage}
+	\begin{center}
+	% Шапка
+	\@university\unskip\strut \\[0.5ex]
+	\ifthenelse{\not\equal{\@faculty}{\texttt{\string\faculty\{\}}} \OR
+		\equal{\@university}{\texttt{\string\university\{\}}} \OR
+		\equal{\@department}{\texttt{\string\department\{\}}} \OR
+		\equal{\@student}{\texttt{\string\student\{\}}} \OR
+		\equal{\@teacher}{\texttt{\string\teacher\{\}}} \OR
+		\equal{\@lessontype}{\texttt{\string\lessontype\{\}}} \OR
+		\equal{\@theme}{\texttt{\string\theme\{\}}}
+		}{
+			\@faculty\unskip\strut \\[0.5ex]
+	}{}
+	\textbf{\@department\unskip\strut}
+	\vfill
+	\vfill
+	\vfill
+	% Основная часть
+	\textbf{Отчет по \@papertype\unskip\strut}\\[0.5ex]
+	\textbf{Дисциплина:} \@lessontype\unskip\strut \\[0.5ex]
+	\textbf{Тема:} \@theme\unskip\strut
+	\ifthenelse{\not\equal{\@variant}{\texttt{\string\variant\{\}}} \OR
+		\equal{\@university}{\texttt{\string\university\{\}}} \OR
+		\equal{\@department}{\texttt{\string\department\{\}}} \OR
+		\equal{\@student}{\texttt{\string\student\{\}}} \OR
+		\equal{\@teacher}{\texttt{\string\teacher\{\}}} \OR
+		\equal{\@lessontype}{\texttt{\string\lessontype\{\}}} \OR
+		\equal{\@theme}{\texttt{\string\theme\{\}}}
+		}{
+			\\[0.5ex]\@variant\unskip\strut
+	}{}
+	\end{center}
+	\vfill
+	% Имена/подписи
+	\ifthenelse{\not\equal{\@studentt}{\texttt{\string\studentt\{\}}} \OR \equal{\@student}{\texttt{\string\student\{\}}}}{
+			\flushleft{Выполнили \\ студенты гр. \@group\unskip\strut} 
+			\hfill\parbox{\@titleright ex}{\hspace*{13.2ex}\hbox to 0ex{\raisebox{-1em}{\small(подпись)}}\hspace*{-3.6ex}\rule{13.2ex}{0.8pt} \@student\unskip\strut}\\[3ex]
+
+			\hfill\parbox{\@titleright ex}{\hspace*{13.2ex}\hbox to 0ex{\raisebox{-1em}{\small(подпись)}}\hspace*{-3.6ex}\rule{13.2ex}{0.8pt} \@studentt\unskip\strut}\\[3ex]
+		}{
+			\flushleft{Выполнил \\ студент гр. \@group\unskip\strut} 
+			\hfill\parbox{\@titleright ex}{\hspace*{13.2ex}\hbox to 0ex{\raisebox{-1em}{\small(подпись)}}\hspace*{-3.6ex}\rule{13.2ex}{0.8pt} \@student\unskip\strut}\\[3ex]
+	}
+
+	\ifthenelse{\not\equal{\@teacherr}{\texttt{\string\teacherr\{\}}} \OR \equal{\@teacher}{\texttt{\string\teacher\{\}}}}{
+			\flushleft{Преподаватели}
+			\hfill\parbox{\@titleright ex}{\hspace*{13.2ex}\hbox to 0ex{\raisebox{-1em}{\small(подпись)}}\hspace*{-3.6ex}\rule{13.2ex}{0.8pt} \@teacher\unskip\strut}\\[3ex]
+
+			\hfill\parbox{\@titleright ex}{\hspace*{13.2ex}\hbox to 0ex{\raisebox{-1em}{\small(подпись)}}\hspace*{-3.6ex}\rule{13.2ex}{0.8pt} \@teacherr\unskip\strut}\\[3ex]
+		}{
+			\flushleft{Преподаватель}
+			\hfill\parbox{\@titleright ex}{\hspace*{13.2ex}\hbox to 0ex{\raisebox{-1em}{\small(подпись)}}\hspace*{-3.6ex}\rule{13.2ex}{0.8pt} \@teacher\unskip\strut}\\[3ex]
+	}
+
+	\hfill\parbox{44ex}{\hspace*{13.2ex}``\rule{3.1ex}{0.8pt}''\rule{13.2ex}{0.8pt}~\the\year~г.}
+	\vfill
+	\begin{center}
+	% Bottom of the page
+	Санкт-Петербург \par
+	\the\year~г.
+	\end{center}
+	\end{titlepage}
+	\setcounter{page}{2}
+	}
+
+%% ПРИЛОЖЕНИЯ %%
+
+	% Используйте окружение \begin{append} и \section для приложений
+	% Реализовано добавление подсекций и автоперенос на следующую страницу
+	% Использует пакет appendix
+	% Требуется две компиляции для верного отображения
+
+	\RequirePackage[title,titletoc]{appendix}
+
+	\newenvironment{append}[1][Приложение]{%
+		\clearpage
+		\begin{appendices}
+		\let\oldsection\section
+		\renewcommand\section{\clearpage\oldsection}
+		\crefalias{section}{appsec}				% Для \cref в cleveref
+		\titleformat{\section}{\normalsize\bfseries}{\appendixname~\thesection}{1em}{}
+		\titleformat{\subsection}{\normalsize}{\thesubsection}{1em}{}
+		\renewcommand{\appendixname}{#1}
+		\renewcommand{\thesection}{\Asbuk{section}}
+	}{
+		\clearpage
+		\renewcommand\section{\oldsection}
+		\end{appendices}
+	}
+
+	% Решение проблемы с "Undefined control sequence"
+	% Источник: http://tex.stackexchange.com/questions/41649/how-to-make-appendix-and-hyperref-packages-work-together-with-cyrillic-non-asci
+	\let\oriAlph\Alph
+	\let\orialph\alph
+	\renewcommand{\@resets@pp}{\par
+		\@ppsavesec
+		\stepcounter{@pps}
+		\setcounter{section}{0}%
+		\if@chapter@pp
+			\setcounter{chapter}{0}%
+			\renewcommand\@chapapp{\appendixname}%
+			\renewcommand\thechapter{\@Alph\c@chapter}%
+		\else
+			\setcounter{subsection}{0}%
+			\renewcommand\thesection{\@Alph\c@section}%
+		\fi
+		\if@pphyper
+			\if@chapter@pp
+				\renewcommand{\theHchapter}{\theH@pps.\oriAlph{chapter}}%
+			\else
+				\renewcommand{\theHsection}{\theH@pps.\oriAlph{section}}%
+			\fi
+			\def\Hy@chapapp{appendix}%
+		\fi
+		\restoreapp
+	}
+
+%% НАСТРОЙКИ ПАКЕТА LISTINGS %%
+
+	% Костыли для русского языка в listings
+	\ifxetexorluatex
+		\lstset{
+			extendedchars=true,
+			keepspaces=true,
+		}
+	\else
+		\lstset{
+			extendedchars=true,
+			keepspaces=true,
+			literate={а}{{\selectfont\char224}}1
+			{б}{{\selectfont\char225}}1
+			{в}{{\selectfont\char226}}1
+			{г}{{\selectfont\char227}}1
+			{д}{{\selectfont\char228}}1
+			{е}{{\selectfont\char229}}1
+			{ё}{{\"e}}1
+			{ж}{{\selectfont\char230}}1
+			{з}{{\selectfont\char231}}1
+			{и}{{\selectfont\char232}}1
+			{й}{{\selectfont\char233}}1
+			{к}{{\selectfont\char234}}1
+			{л}{{\selectfont\char235}}1
+			{м}{{\selectfont\char236}}1
+			{н}{{\selectfont\char237}}1
+			{о}{{\selectfont\char238}}1
+			{п}{{\selectfont\char239}}1
+			{р}{{\selectfont\char240}}1
+			{с}{{\selectfont\char241}}1
+			{т}{{\selectfont\char242}}1
+			{у}{{\selectfont\char243}}1
+			{ф}{{\selectfont\char244}}1
+			{х}{{\selectfont\char245}}1
+			{ц}{{\selectfont\char246}}1
+			{ч}{{\selectfont\char247}}1
+			{ш}{{\selectfont\char248}}1
+			{щ}{{\selectfont\char249}}1
+			{ъ}{{\selectfont\char250}}1
+			{ы}{{\selectfont\char251}}1
+			{ь}{{\selectfont\char252}}1
+			{э}{{\selectfont\char253}}1
+			{ю}{{\selectfont\char254}}1
+			{я}{{\selectfont\char255}}1
+			{А}{{\selectfont\char192}}1
+			{Б}{{\selectfont\char193}}1
+			{В}{{\selectfont\char194}}1
+			{Г}{{\selectfont\char195}}1
+			{Д}{{\selectfont\char196}}1
+			{Е}{{\selectfont\char197}}1
+			{Ё}{{\"E}}1
+			{Ж}{{\selectfont\char198}}1
+			{З}{{\selectfont\char199}}1
+			{И}{{\selectfont\char200}}1
+			{Й}{{\selectfont\char201}}1
+			{К}{{\selectfont\char202}}1
+			{Л}{{\selectfont\char203}}1
+			{М}{{\selectfont\char204}}1
+			{Н}{{\selectfont\char205}}1
+			{О}{{\selectfont\char206}}1
+			{П}{{\selectfont\char207}}1
+			{Р}{{\selectfont\char208}}1
+			{С}{{\selectfont\char209}}1
+			{Т}{{\selectfont\char210}}1
+			{У}{{\selectfont\char211}}1
+			{Ф}{{\selectfont\char212}}1
+			{Х}{{\selectfont\char213}}1
+			{Ц}{{\selectfont\char214}}1
+			{Ч}{{\selectfont\char215}}1
+			{Ш}{{\selectfont\char216}}1
+			{Щ}{{\selectfont\char217}}1
+			{Ъ}{{\selectfont\char218}}1
+			{Ы}{{\selectfont\char219}}1
+			{Ь}{{\selectfont\char220}}1
+			{Э}{{\selectfont\char221}}1
+			{Ю}{{\selectfont\char222}}1
+			{Я}{{\selectfont\char223}}1
+		}
+	\fi
+
+	\begingroup
+		\catcode0=12 %
+		\g@addto@macro\lst@DefEC{%
+			\lst@CCECUse\lst@ProcessLetter
+			абвгдеёжзийклмнопрстуфхцчшщъыьэюя%	% Добавление русских символов (XeTeX)
+			АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ%
+			^^00%								% Маркер завершения
+		}%
+	\endgroup
+
+	% Общие настройки
+	\lstset{
+		basicstyle=\small\ttfamily,				% Размер и начертание шрифта для подсветки кода
+		numbers=left,							% Нумерация строк (слева/справа)
+		numberstyle=\tiny\color{black},			% Размер шрифта для номеров строк	
+		stepnumber=2,							% Шаг между двумя номерами строк
+		numbersep=5pt,							% Расстояние номера строки до кода
+		firstnumber=1,							% Установка номера первой строки 1 (решает проблему неправильного шага строк)
+		numberfirstline=true,					% Подсветка номера первой строки в листинге
+		columns=flexible,						% Выравнивание столбцов (убирает ложные пробелы)
+		frame=single,							% Рамка
+		breaklines=true,						% Автоперенос строк
+		captionpos=b,							% Размещение подписи
+		showstringspaces=false,					% Отображение пробелов
+		breakatwhitespace=false,				% Переносить строки только если есть пробел
+		backgroundcolor=\color{white},			% Цвет фона подсветки
+		identifierstyle=\color{black},			% Цвет обычного кода
+		emphstyle=[1]\color{black},				% Указание цвета для переопрееделения
+		backgroundcolor=\color{lbcolor},		% Цвет фона
+		rulecolor=\color{frameline}				% Цвет рамки
+	}
+
+	% MATLAB
+	\lstdefinestyle{matlab}{
+		language=Matlab,						% Язык для подсветки
+		tabsize=4,								% Количество пробелов для Tab
+		morekeywords={matlab2tikz},				% Дополнительные ключевые слова
+		keywordstyle=\color{blue}\bfseries,		% Цвет ключевых слов
+		stringstyle=\color{mllilas},			% Цвет стрингов
+		commentstyle=\color{mlgreen},			% Цвет комментариев
+		identifierstyle=\color{black},			% Цвет обычного кода
+		emphstyle=[1]\color{black},				% Указание цвета для переопрееделения
+	}
+
+	% VHDL
+	\lstdefinestyle{vhdl}{
+		language=VHDL,							% Язык для подсветки
+		tabsize=3,								% Количество пробелов для Tab
+		keywordstyle=\color{blue}\bfseries,		% Цвет ключевых слов
+		morekeywords=[2]{						% Дополнительные ключевые слова
+			STD_LOGIC_VECTOR,STD_LOGIC,IEEE,STD_LOGIC_1164,
+			std_logic_vector,std_logic,ieee,std_logic_1164,
+			NUMERIC_STD,STD_LOGIC_ARITH,STD_LOGIC_UNSIGNED,
+			numeric_std,std_logic_arith,std_logic_unsigned,
+			BIT,BOOLEAN,BIT_VECTOR,INTEGER,STRING,
+			bit,boolean,bit_vector,integer,string,
+		},
+		keywordstyle=[2]\color{vhred}\bfseries,	% Цвет дополнительных ключевых слов
+		morekeywords=[3]{event,EVENT},			% Дополнительные ключевые слова (работает плохо)
+		keywordstyle=[3]{\color{blue}},			% Цвет дополнительных ключевых слов
+		stringstyle=\color{mllilas},			% Цвет стрингов ""
+		morestring=[m][\color{vhred}]',			% Цвет стрингов '' (работает плохо, разобраться)
+		commentstyle=\color{mlgreen},			% Цвет комментариев
+		identifierstyle=\color{black},			% Цвет обычного кода
+		emph=[1]{or,and,not,OR,AND,NOT},		% Переопределение цвета дефолтных ключевых слов
+		emphstyle=[1]\color{vhred}\bfseries,	% Указание цвета для переопрееделения
+	}
+
+	\lstdefinestyle{verilog}{
+		language=Verilog,
+		morekeywords={},
+		keywordstyle=\color{blue}\bfseries,
+		morekeywords=[2]{1},
+		keywordstyle=[2]{\color{black}},
+		stringstyle=\color{mllilas},
+		commentstyle=\color{mlgreen},
+	}
+
+	\lstdefinestyle{latex}{
+		language={[LaTeX]TeX},					% Язык для подсветки
+		tabsize=4,								% Количество пробелов для Tab
+		keywordstyle=\color{blue}\bfseries,		% Цвет ключевых слов
+		morekeywords=[2]{						% Дополнительные ключевые слова
+			ProvidesPackage,RequirePackage,
+			subsection,subsubsection,phantomsection,
+			printbibliography,tableofcontents,listoffigures,
+			listoftables,lstlistoflistings,ifthenelse,
+			Asbuk,asbuk,
+		},
+		keywordstyle=[2]{\color{blue}},			% Цвет дополнительных ключевых слов
+		commentstyle=\color{mlgreen},			% Цвет комментариев
+		identifierstyle=\color{black},			% Цвет обычного кода
+		emphstyle=[1]\color{black},				% Указание цвета для переопрееделения
+	}
+
+	\lstdefinestyle{java}{
+		language=Java,
+		tabsize=4,
+		keywordstyle=\color{javapurple}\bfseries,
+		stringstyle=\color{javared},
+		commentstyle=\color{javagreen},
+		morecomment=[s][\color{javadocblue}]{/**}{*/},
+		identifierstyle=\color{black},
+		emphstyle=[1]\color{black},
+	}
+
+	\lstdefinelanguage{XML}{
+		morestring=[b]",
+		moredelim=[s][\bfseries\color{maroon}]{<}{\ },
+		moredelim=[s][\bfseries\color{maroon}]{</}{>},
+		moredelim=[l][\bfseries\color{maroon}]{/>},
+		moredelim=[l][\bfseries\color{maroon}]{>},
+		morecomment=[s]{<?}{?>},
+		morecomment=[s]{<!--}{-->},
+		commentstyle=\color{darkolivegreen},
+		stringstyle=\color{blue},
+		identifierstyle=\color{red},
+		emphstyle=[1]\color{black},
+	}
+
+	\lstdefinestyle{xml}{
+		language=XML,
+		tabsize=2,
+	}
+
+	\lstdefinelanguage
+		[SH51]{Assembler}						% add a "Shell51" dialect of Assembler
+		[x86masm]{Assembler}					% based on the "x86masm" dialect
+		{
+		morekeywords={
+			mov,movx,movc,push,pop,xch,xchd,swap,
+			add,addc,subb,da,inc,dec,mul,div,anl,orl,xrl,clr,cpl,rl,rlc,rr,rrc,setb,
+			jb,jbc,jnb,jc,jnc,ljmp,ajmp,sjmp,jmp,lcall,acall,ret,reti,jz,jnz,jc,jnc,djnz,cjne,
+			MOV,MOVX,MOVC,PUSH,POP,XCH,XCHD,SWAP,
+			ADD,ADDC,SUBB,DA,INC,DEC,MUL,DIV,ANL,ORL,XRL,CLR,CPL,RL,RLC,RR,RRC,SETB,
+			JB,JBC,JNB,JC,JNC,LJMP,AJMP,SJMP,JMP,LCALL,ACALL,RET,RETI,JZ,JNZ,JC,JNC,DJNZ,CJNE,
+		},
+		deletekeywords=[2]{end}
+	}
+
+	\lstdefinestyle{sh51}{
+		language={[SH51]Assembler},
+		tabsize=8,
+	}
+
+	\lstdefinestyle{shell}{
+		language=bash,
+		morekeywords={ls, touch, mkdir, mv, cp, rm, rmdir, whoami, hostname, cmp, diff, sudo, sed, uniq, sort, cc, gdb, ln},
+		deletekeywords={local, test, done, set}
+	}
+
+%% TODO В ДОКУМЕНТЕ %%
+
+	\RequirePackage{todonotes}
+	\reversemarginpar
+	\setlength{\marginparwidth}{1.6cm}
+
+%% ДОБАВЛЕНИЕ МЕТАДАННЫХ В ТЕГИ PDF ФАЙЛА %%
+
+	\AtBeginDocument{
+		\ifthenelse{\equal{\@studentt}{\texttt{\string\studentt\{\}}}}{
+			\newcommand*{\@metadataauthor}{\@student}
+		}{
+			\newcommand*{\@metadataauthor}{\@student, \@studentt}
+		}
+
+		\hypersetup{
+			pdftitle={\@theme},
+			pdfsubject={\@lessontype},
+			pdfauthor={\@metadataauthor},
+		}
+	}
+
+%% КОСТЫЛЬ ДЛЯ ПАКЕТА CLEVEREF (XETEX) %%
+
+	\ifxetexorluatex
+		\newcommand{\cyr}[0]{}
+		\renewcommand{\cyra}[0]{а}
+		\renewcommand{\cyrb}[0]{б}
+		\renewcommand{\cyrv}[0]{в}
+		\renewcommand{\cyrg}[0]{г}
+		\renewcommand{\cyrd}[0]{д}
+		\renewcommand{\cyre}[0]{е}
+		\renewcommand{\cyryo}[0]{ё}
+		\renewcommand{\cyrzh}[0]{ж}
+		\renewcommand{\cyrz}[0]{з}
+		\renewcommand{\cyri}[0]{и}
+		\renewcommand{\cyrishrt}[0]{й}
+		\renewcommand{\cyrk}[0]{к}
+		\renewcommand{\cyrl}[0]{л}
+		\renewcommand{\cyrm}[0]{м}
+		\renewcommand{\cyrn}[0]{н}
+		\renewcommand{\cyro}[0]{о}
+		\renewcommand{\cyrp}[0]{п}
+		\renewcommand{\cyrr}[0]{р}
+		\renewcommand{\cyrs}[0]{с}
+		\renewcommand{\cyrt}[0]{т}
+		\renewcommand{\cyru}[0]{у}
+		\renewcommand{\cyrf}[0]{ф}
+		\renewcommand{\cyrh}[0]{х}
+		\renewcommand{\cyrc}[0]{ц}
+		\renewcommand{\cyrch}[0]{ч}
+		\renewcommand{\cyrsh}[0]{ш}
+		\renewcommand{\cyrshch}[0]{щ}
+		\renewcommand{\cyrsftsn}[0]{ь}
+		\renewcommand{\cyrery}[0]{ы}
+		\renewcommand{\cyrhrdsn}[0]{ъ}
+		\renewcommand{\cyrerev}[0]{э}
+		\renewcommand{\cyryu}[0]{ю}
+		\renewcommand{\cyrya}[0]{я}
+
+		\renewcommand{\CYRA}[0]{А}
+		\renewcommand{\CYRB}[0]{Б}
+		\renewcommand{\CYRV}[0]{В}
+		\renewcommand{\CYRG}[0]{Г}
+		\renewcommand{\CYRD}[0]{Д}
+		\renewcommand{\CYRE}[0]{Е}
+		\renewcommand{\CYRYO}[0]{Ё}
+		\renewcommand{\CYRZH}[0]{Ж}
+		\renewcommand{\CYRZ}[0]{З}
+		\renewcommand{\CYRI}[0]{И}
+		\renewcommand{\CYRY}[0]{Й}
+		\renewcommand{\CYRK}[0]{К}
+		\renewcommand{\CYRL}[0]{Л}
+		\renewcommand{\CYRM}[0]{М}
+		\renewcommand{\CYRN}[0]{Н}
+		\renewcommand{\CYRO}[0]{О}
+		\renewcommand{\CYRP}[0]{П}
+		\renewcommand{\CYRR}[0]{Р}
+		\renewcommand{\CYRS}[0]{С}
+		\renewcommand{\CYRT}[0]{Т}
+		\renewcommand{\CYRU}[0]{У}
+		\renewcommand{\CYRF}[0]{Ф}
+		\renewcommand{\CYRH}[0]{Х}
+		\renewcommand{\CYRC}[0]{Ц}
+		\renewcommand{\CYRCH}[0]{Ч}
+		\renewcommand{\CYRSH}[0]{Ш}
+		\renewcommand{\CYRSHCH}[0]{Щ}
+		\renewcommand{\CYRSFTSN}[0]{Ь}
+		\renewcommand{\CYRERY}[0]{Ы}
+		\renewcommand{\CYRHRDSN}[0]{Ъ}
+		\renewcommand{\CYREREV}[0]{Э}
+		\renewcommand{\CYRYU}[0]{Ю}
+		\renewcommand{\CYRYA}[0]{Я}
+	\else
+	\fi
+
+%% ДОБАВЛЕНИЕ BABEL-LIKE КАВЫЧЕК ДЛЯ POLYGLOSSIA %%
+%% ДОБАВЛЕНО В КОНЦЕ ИЗ-ЗА ПЛОХОЙ ПОДСВЕТКИ СИНТАКСИСА В ТЕКСТОВОМ РЕДАКТОРЕ xD %%
+
+	\ifxetexorluatex
+		\declare@shorthand{russian}{"`}{„}
+		\declare@shorthand{russian}{"'}{“}
+		\declare@shorthand{russian}{"<}{«}
+		\declare@shorthand{russian}{">}{»}
+	\else
+	\fi
+
+\endinput

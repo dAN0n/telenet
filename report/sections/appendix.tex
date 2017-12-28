@@ -1,0 +1,616 @@
+% !TEX root = ../TeleNet_Zobkov_435013.tex
+\begin{append}
+
+\section{Часть TCP}
+\subsection{Создание сервера} \label{app:createserver}
+
+\begin{lstlisting}[language=C, label=lst:createserver]
+int main(int argc, char *argv[]){
+
+    /* ... */
+    /* Обработка ключей при запуске и открытие файла users.txt */
+
+    startWSA();
+
+    WaitForSingleObject(hMutex, INFINITE);
+    for (int i = 0; i < maxThreads; i++)
+        clientDesc[i].sock = INVALID_SOCKET;
+    ReleaseMutex(hMutex);
+
+    sockaddr_in server;
+    listenSocket = socket(AF_INET, SOCK_STREAM, 0);
+
+    server.sin_addr.s_addr = htonl(INADDR_ANY);
+    server.sin_port        = htons(serverPort);
+    server.sin_family      = AF_INET;
+
+    if (listenSocket < 0){
+        puts("Socket failed with error");
+        WSACleanup();
+        exit(2);
+    }
+
+    if(bind(listenSocket, (struct sockaddr *) &server, sizeof(server)) < 0){
+        puts("Bind failed. Error");
+        exit(3);
+    }
+
+    if(listen(listenSocket, SOCKET_ERROR) == SOCKET_ERROR){
+        puts("Listen call failed. Error");
+        exit(4);
+    }
+
+    HANDLE hAccept = CreateThread(NULL, 0, acceptConnections, (void *)listenSocket, 0, NULL);
+
+    serverProcess();
+
+    WaitForSingleObject(hAccept, INFINITE);
+
+    WSACleanup();
+    return 0;
+}
+\end{lstlisting}
+
+\subsection{Подключение клиентов} \label{app:acceptconnections}
+
+\begin{lstlisting}[language=C, label=lst:createserver]
+DWORD WINAPI acceptConnections(void *listenSocket){
+    SOCKET acceptSocket;
+    clientDescriptor desc;
+    sockaddr_in clientInfo;
+    int clientInfoSize = sizeof(clientInfo);
+
+    while(true){
+        int ind = -1;
+
+        acceptSocket = accept((SOCKET)listenSocket, (struct sockaddr*)&clientInfo, &clientInfoSize);
+
+        if(acceptSocket == INVALID_SOCKET) break;
+        else if(acceptSocket < 0){
+            puts("Accept failed");
+            continue;
+        }
+
+        WaitForSingleObject(hMutex, INFINITE);
+        for (int i = maxThreads - 1; i >= 0; i--)
+        if(clientDesc[i].sock == INVALID_SOCKET){
+            ind = i;
+        }
+        ReleaseMutex(hMutex);
+
+        if(ind < 0){
+            char *ip  = inet_ntoa(clientInfo.sin_addr);
+
+            sendMSG(acceptSocket, MSG_FULL);
+            shutdown(acceptSocket, SD_BOTH);
+            closesocket(acceptSocket);
+
+            cout << ip << ":" << clientInfo.sin_port << " was disconnected because of server overload" << endl;
+            continue;
+        }
+
+        desc.sock = acceptSocket;
+        desc.ip   = inet_ntoa(clientInfo.sin_addr);
+        desc.port = clientInfo.sin_port;
+
+        cout << "Connection request received." << endl;
+        cout << "New socket was created at address " << desc.ip << ":" << desc.port << endl;
+
+        clientDesc[ind] = desc;
+        clientDesc[ind].handle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)clientProcess, (void *)desc.sock, 0, NULL);
+    }
+
+    WaitForSingleObject(hMutex, INFINITE);
+    vector<HANDLE> hClients;
+    for(int i = 0; i < maxThreads; i++)
+        if(clientDesc[i].sock != INVALID_SOCKET){
+            hClients.push_back(clientDesc[i].handle);
+            closeSocket(i);
+        }
+    ReleaseMutex(hMutex);
+
+    if (!hClients.empty()){
+        WaitForMultipleObjects(hClients.size(), hClients.data(), TRUE, INFINITE);
+    }
+    return 0;
+}
+\end{lstlisting}
+
+\subsection{Структуры, используемые для работы с клиентами} \label{app:struct}
+
+\begin{lstlisting}[language=C, label=lst:createserver]
+struct clientDescriptor{
+    SOCKET sock;
+    HANDLE handle;
+    char *ip;
+    int port;
+    string login;
+};
+
+struct userData{
+    string login;
+    string password;
+    string permissions;
+    string path;
+    bool online;
+};
+
+clientDescriptor clientDesc[MAX_THREADS_POSSIBLE];
+vector<userData> users;
+\end{lstlisting}
+
+\subsection{Поток обработки клиентских сообщений} \label{app:clientprocess}
+
+\begin{lstlisting}[language=C, label=lst:createserver]
+DWORD WINAPI clientProcess(void* socket){
+    int ind;
+    bool exitFlag = false;
+    state state = CONNECT;
+    char buffer[packetSize];
+    string line;
+
+    for (int i = 0; i < maxThreads; i++){
+        if (clientDesc[i].sock == (SOCKET)socket) ind = i;
+    }
+
+    while(!exitFlag){
+        string login;
+        string password;
+        string cmd;
+        int logInd;
+        size_t pos = 0;
+        line = "";
+
+        switch(state){
+            case CONNECT:
+                sendMSG(clientDesc[ind].sock, MSG_WELCOME);
+
+                if(recvS(clientDesc[ind].sock, buffer, line) != 1){
+                    exitFlag = true;
+                    break;
+                }else cout << clientDesc[ind].ip << ":" << clientDesc[ind].port << " " << line << endl;
+
+                pos = line.find(" ");
+                cmd = line.substr(0, pos);
+
+                if(cmd == "login" || cmd == "addusr"){
+                    if(line.find_first_of(" ") != string::npos)
+                        line = line.substr(line.find_first_of(" "), string::npos);
+                    if(line.find_first_not_of(" ") != string::npos)
+                        line = line.substr(line.find_first_not_of(" "), string::npos);
+                    
+                    pos = line.find(" ");
+                    login = line.substr(0, pos);
+
+                    if(line.find_first_of(" ") != string::npos)
+                        line = line.substr(line.find_first_of(" "), string::npos);
+                    if(line.find_first_not_of(" ") != string::npos)
+                        line = line.substr(line.find_first_not_of(" "), string::npos);
+
+                    pos = line.find(" ");
+                    password = line.substr(0, pos);
+                }
+                else sendMSG(clientDesc[ind].sock, MSG_INVALID_CMD);
+                
+                if(cmd == "login"){
+                    if(loginCommand(login, password) == 0){
+                        logInd = getUserIndex(login);
+
+                        WaitForSingleObject(hMutex,INFINITE);
+                        clientDesc[ind].login = login;
+                        ReleaseMutex(hMutex);
+
+                        state = WORK;
+                    }
+                    else if(loginCommand(login, password) == 1){
+                        sendMSG(clientDesc[ind].sock, MSG_LOGPASS_NOT_MATCH);
+                        break;
+                    }
+                    else{
+                        sendMSG(clientDesc[ind].sock, MSG_USER_ONLINE);
+                        break;                        
+                    }
+                }
+
+                if(cmd == "addusr"){
+                    if(addusrCommand(login, password) == 0){
+                        logInd = getUserIndex(login);
+
+                        WaitForSingleObject(hMutex,INFINITE);
+                        clientDesc[ind].login = login;
+                        users[logInd].online = true;
+                        ReleaseMutex(hMutex);
+
+                        state = WORK;
+                    }
+                    else if(addusrCommand(login, password) == 1){
+                        sendMSG(clientDesc[ind].sock, MSG_USER_EXISTS);
+                        break;
+                    }
+                    else if(addusrCommand(login, password) == 2){
+                        cout << "ERROR: Can't open users.txt" << endl;
+                        return 2;
+                    }
+                    else{
+                        sendMSG(clientDesc[ind].sock, MSG_LOGPASS_MATCHING);
+                    }
+                }
+
+                break;
+            case WORK:
+                while(true){
+                    string cmd;
+                    vector<string> names;
+
+                    string prompt = users[logInd].login + " @ " + users[logInd].path + " $ \n";
+                    sendMSG(clientDesc[ind].sock, prompt);
+                    
+                    cmd = "";
+                    if(recvS(clientDesc[ind].sock, buffer, cmd) != 1){
+                        exitFlag = true;
+                        break;
+                    }else cout << clientDesc[ind].ip << ":" << clientDesc[ind].port
+                               << "|" << clientDesc[ind].login << "| " << cmd << endl;
+
+                    if(cmd == "ls"){
+                        names = lsCommand(users[logInd].path);
+
+                        for(int i = 0; i < names.size(); i++)
+                            sendMSG(clientDesc[ind].sock, names[i] + "\n");
+                        names.clear();
+                    }
+
+                    else if(cmd.find("cd ") != string::npos){
+                        cmd = cmd.substr(3, string::npos);
+                        cmd = cmd.substr(0, cmd.find_last_not_of(" ") + 1);
+
+                        users[logInd].path = cdCommand(clientDesc[ind].sock, cmd, users[logInd].path);
+                        rewriteUserFile();
+                    }
+
+                    else if(cmd == "pwd"){
+                        sendMSG(clientDesc[ind].sock, users[logInd].path + "\n");
+                    }
+
+                    else if(cmd == "who"){
+                        if(users[logInd].permissions.find("w") != string::npos){
+                            for(int i = 0; i < users.size(); i++){
+                                string online, send;
+                                if(users[i].online) online = "ONLINE";
+                                send = users[i].login + "\t" + online + "\t" + users[i].path + "\n";
+                                sendMSG(clientDesc[ind].sock, send);
+                            }
+                        }else sendMSG(clientDesc[ind].sock, MSG_NO_PERMISSIONS);
+                    }
+
+                    else if(cmd.find("chmod ") != string::npos){
+                        if(users[logInd].permissions.find("c") != string::npos){
+                            cmd = cmd.substr(6, string::npos);
+                            cmd = cmd.substr(0, cmd.find_last_not_of(" ") + 1);
+
+                            pos = cmd.find(" ");
+                            string login = cmd.substr(0, pos);
+
+                            if(login == "root" || login == users[logInd].login){
+                                sendMSG(clientDesc[ind].sock, MSG_LOCK_PERMISSIONS);
+                                continue;
+                            }
+
+                            if(chmodCommand(cmd) == 0) rewriteUserFile();
+                            else sendMSG(clientDesc[ind].sock, MSG_USER_NOT_EXISTS);
+                        }else sendMSG(clientDesc[ind].sock, MSG_NO_PERMISSIONS);
+                    }
+
+                    else if(cmd.find("kill ") != string::npos){
+                        if(users[logInd].permissions.find("k") != string::npos){
+                            cmd = cmd.substr(5, string::npos);
+                            cmd = cmd.substr(0, cmd.find_last_not_of(" ") + 1);
+
+                            if(cmd == "root" || cmd == users[logInd].login){
+                                sendMSG(clientDesc[ind].sock, MSG_LOCK_KILL);
+                                continue;
+                            }
+
+                            if(killCommand(cmd) != 0) sendMSG(clientDesc[ind].sock, MSG_KILL_FAILED);
+                        }else sendMSG(clientDesc[ind].sock, MSG_NO_PERMISSIONS);
+                    }
+
+                    else if(cmd == "logout"){
+                        break;
+                    }
+                    else sendMSG(clientDesc[ind].sock, MSG_INVALID_CMD);
+                }
+
+                WaitForSingleObject(hMutex,INFINITE);
+                users[logInd].online = false;
+                clientDesc[ind].login = "";
+                ReleaseMutex(hMutex);
+
+                state = CONNECT;
+
+                break;
+            default:
+                break;
+        }
+    }
+
+    closeSocket(ind);
+    return 0;
+}
+\end{lstlisting}
+
+\subsection{Функция чтения до перевода строки} \label{app:recvs}
+
+\begin{lstlisting}[language=C, label=lst:createserver]
+int recvS(SOCKET socket, char *buf, string &line){
+    int rc = 1;
+    while(rc != 0){
+        rc = recv(socket, buf, 1, 0);
+        if(rc <= 0) return 0;
+        if(buf[0] == '\n') return 1;
+        line = line + buf[0];
+    }
+}
+\end{lstlisting}
+
+\subsection{Функция закрытия сокета} \label{app:close}
+
+\begin{lstlisting}[language=C, label=lst:createserver]
+void closeSocket(int ind){
+    WaitForSingleObject(hMutex, INFINITE);
+    if(ind >= 0 && ind < maxThreads && clientDesc[ind].sock != INVALID_SOCKET){
+            if(closesocket(clientDesc[ind].sock))
+                puts("Closesocket failed");
+            else{
+                cout << clientDesc[ind].ip << ":" << clientDesc[ind].port << " was disconnected" << endl;
+                clientDesc[ind].sock = INVALID_SOCKET;
+            }
+    }
+    ReleaseMutex(hMutex);
+}
+\end{lstlisting}
+
+\section{Часть UDP} 
+\subsection{Инициализация сервера} \label{app:createserverudp}
+
+\begin{lstlisting}[language=C, label=lst:createserver]
+int main(int argc, char *argv[]){
+
+    /* ... */
+    /* Обработка ключей при запуске */
+
+    for(int i = 0; i < MAX_THREADS; i++) clientsData[i].id = -1;
+
+    pthread_mutex_init(&mutex, NULL);
+
+    mainSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+
+    if(mainSocket < 0){
+        puts("Socket failed with error");
+        return 1;
+    }
+
+    memset((char *) &serverAddress, 0, sizeof(serverAddress));
+    serverAddress.sin_family = AF_INET;
+    serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
+    serverAddress.sin_port = htons(serverPort);
+
+    if(bind(mainSocket, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) < 0){
+        puts("Bind failed. Error");
+        return 2;
+    }
+
+    processClients();
+
+    int status_addr;
+
+    pthread_join(serverThread, (void**) &status_addr);
+    for(int i = 0; i < MAX_THREADS; i++) {
+        pthread_join(clients[i], (void**) &status_addr);  // ЧТО-ТО СТРАННОЕ
+    }
+
+    close(mainSocket);
+    mainSocket = -1;
+
+    puts("Server is stopped.\n");
+    return 0;
+}
+\end{lstlisting}
+
+\subsection{Подключение клиентов} \label{app:acceptconnectionsudp}
+
+\begin{lstlisting}[language=C, label=lst:createserver]
+void processClients(){
+    pthread_create(&serverThread, NULL, serverProcess, NULL);
+
+    while(serverStart){
+        struct sockaddr_in clientAddress;
+        int size = sizeof(struct sockaddr_in);
+        char buff[BUFLEN] = "";
+        bool newThread = true;
+        bool exist = false;
+
+        recvfrom(mainSocket, buff, BUFLEN, 0, (sockaddr *) &clientAddress, (socklen_t *) &size);
+        int pos = findExistingClientsData(clientAddress);
+        if(pos >= 0) newThread = false;
+        else pos = findFreeClientsData();
+
+        if(pos >= 0){
+            clientStruct client;
+            client.id = pos;
+            memcpy(client.buffer, buff, sizeof(client.buffer));
+            client.cl_sock = clientAddress;
+
+                pthread_mutex_lock(&mutex);
+                clientsData[pos] = client;
+                pthread_mutex_unlock(&mutex);
+
+            if(newThread && serverStart){
+                cout << "Add new client " << inet_ntoa(clientAddress.sin_addr)
+                     << ":" << clientAddress.sin_port << endl;
+
+                pthread_create(&clients[pos], NULL, clientProcess, (void*) &pos);
+            }
+        }else{
+            cout << "SERVER OVERLOAD, KILL TO FREE THREAD" << endl;
+        }
+    }
+}
+\end{lstlisting}
+
+\subsection{Структура, используемая для работы с клиентами} \label{app:structudp}
+
+\begin{lstlisting}[language=C, label=lst:createserver]
+struct clientStruct{
+    int id;
+    char buffer[BUFLEN];
+    sockaddr_in cl_sock;
+};
+
+struct clientStruct clientsData[MAX_THREADS];
+\end{lstlisting}
+
+\subsection{Обработка действий клиента} \label{app:clientprocessudp}
+
+\begin{lstlisting}[language=C, label=lst:createserver]
+void* clientProcess(void *args){
+    int id = *((int*) args);
+    string temp = clientsData[id].buffer;
+    
+    int numSpace = temp.find(' ', 0);
+    int idPackageInt = atoi(temp.substr(0, numSpace).data()) - 1;
+    
+    string buffer = "";
+    clock_t t1, t2;
+    bool needCheck = false;
+
+    while(clientsData[id].id >= 0){
+        if(buffer != clientsData[id].buffer){
+            buffer = clientsData[id].buffer;
+            string answer;
+
+            if(count(buffer.begin(), buffer.end(), ' ') > 0){
+                //поиск ID пакета
+                int numSpace = buffer.find(' ', 0);
+                string idPackage = buffer.substr(0, numSpace);
+                buffer.erase(0, numSpace + 1);
+
+                if(needCheck){
+                    t2 = clock();
+                    if(buffer == "#CHECK" && ((double)(t2 - t1) / CLOCKS_PER_SEC) < 3){
+                        cout << "ID:" << id << " checked" << endl;
+                    }
+                    else
+                        cout << "ID:" << id << " has not received a message" << endl;
+                    needCheck = false;
+                }
+                else if(atoi(idPackage.data()) - idPackageInt == 1){
+                    answer = "Echo: " + buffer + "\n";
+
+                    idPackageInt = atoi(idPackage.data());
+                    send(clientsData[id].cl_sock, idPackage + " " + answer);
+                    needCheck = true;
+                    t1 = clock();
+                }
+                else{
+                    if(idPackageInt - atoi(idPackage.data()) == 0) answer = SAME_ERROR;
+                    else answer = MIXING_ERROR;
+                    send(clientsData[id].cl_sock, answer);
+                    needCheck = true;
+                    t1 = clock();
+                }
+            }
+            else{
+                answer = FAILED_ERROR;
+                send(clientsData[id].cl_sock, answer);
+                needCheck = true;
+                t1 = clock();
+            }
+        buffer = clientsData[id].buffer;
+        }
+    }
+    pthread_mutex_lock(&mutex);
+    clientsData[id].id = -1;
+    cout << "ID:" << id << " removed from list" << endl;
+    pthread_mutex_unlock(&mutex);
+}
+\end{lstlisting}
+
+\subsection{Функция отправки сообщений на клиенте} \label{app:sendudp}
+
+\begin{lstlisting}[language=C, label=lst:createserver]
+int sendData(sockaddr_in server, string msg, int id_package) {
+    memset(buf, 0, BUFFER_SIZE);
+
+    string res = "";
+
+    char buffer[8];
+    sprintf(buffer, "%d", id_package);
+    string id = buffer;
+
+    res = id + " " + msg;
+
+    int len = sizeof(server);
+    sendto(clientSocket, res.data(), res.size(), 0, (struct sockaddr *) &server, len);
+    string getAnswer = receiveData(server);
+
+    if(getAnswer.empty()){
+        cout << "PACKAGE " + id + " WAS LOST" << endl;
+        cout << "NO CONNECTION" << endl;
+    }
+    else{
+        int numSpace = getAnswer.find(" ", 0);
+        if(numSpace < 0){
+            cout << "PACKAGE " + id + " WAS LOST" << endl;
+            cout << "RECEIVED: " + getAnswer << endl;
+        }
+        else{
+            int id_getPackage = atoi(getAnswer.substr(0, numSpace).data());
+            if(id_getPackage != id_package){
+                cout << "PACKAGE " + id + " WAS LOST" << endl;
+                cout << "RECEIVED: " + getAnswer << endl;
+            }
+            else{
+                getAnswer.erase(0, numSpace + 1);
+                cout << getAnswer << endl;
+            }
+        }
+        res = id + " #CHECK";
+        sendto(clientSocket, res.data(), strlen(res.data()), 0, (struct sockaddr *) &server, len);
+    }
+    return 0;
+}
+\end{lstlisting}
+
+\subsection{Функция приема сообщений на клиенте} \label{app:recvudp}
+
+\begin{lstlisting}[language=C, label=lst:createserver]
+string receiveData(sockaddr_in &server) {
+    memset(buf, 0, BUFFER_SIZE);
+
+    int len = sizeof(server);
+
+    struct timeval tv;
+    tv.tv_sec = 2;
+    tv.tv_usec = 0;
+
+    fd_set rfds;
+    FD_ZERO(&rfds);
+    FD_SET(clientSocket, &rfds);
+
+    int i = select(clientSocket + 1, &rfds, NULL, NULL, &tv);
+
+    if(i > 0){
+        recvfrom(clientSocket, buf, BUFFER_SIZE, 0, (struct sockaddr *) &server, &len);
+        string res(buf);
+        return res;
+    }else{
+        cout << "TIMEOUT" << endl;
+        return "";
+    }
+    return "";
+}
+\end{lstlisting}
+
+
+\end{append}
